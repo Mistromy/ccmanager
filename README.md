@@ -47,3 +47,70 @@ north, west, east, south.
 ```
 ## Open questions
 ## Rejected alternatives + why
+
+## Viewer / Control GUI
+
+A 3D inspector for the cached world, built as a separate client against the server API.
+
+### Rendering
+- 3D voxel view of the cached world plus live turtle positions
+- **Tunnel visibility:** tunnels are their own block type, rendered as a
+  distinct layer. Generic air renders on top with backface culling and
+  flipped normals, so tunnel interiors stay visible through surrounding
+  terrain. Turtles render inside/on top.
+- Greedy meshing for chunk geometry, instanced rendering for turtles
+
+### Inspection
+- Filter and colour blocks by attribute: type, TTL / staleness, scan age,
+  importance weight, protected/breakable
+- Overlay heatmaps: player presence, turtle traffic, rescan priority
+- Display planned A* paths per turtle
+- Highlight discrepancies between cached and last-scanned state
+
+### Turtle management
+- Live stats per turtle: fuel, inventory, current task, queue depth
+- Parent/child and coalition relationships, visualised
+- Manual control: remote reboot, halt, reassign task, manual movement
+- Task queue inspection and reordering
+
+### Stack
+
+**Rust.**
+
+**Rendering**
+- `wgpu` — modern GPU abstraction over Vulkan / Metal / DX12 / WebGPU.
+  Vulkan-level control without Vulkan-level boilerplate. Compute shaders
+  available if needed later.
+- `winit` — windowing and input events
+- `egui` — immediate-mode UI, docked panels over the 3D viewport
+- `glam` — vector/matrix maths (or `nalgebra` if more is needed later)
+- `bytemuck` — safe casting of structs to GPU buffers
+
+**Alternatives considered**
+- `bevy` — full engine, ECS, built-in camera controllers and picking.
+  Faster to prototype. Rejected for now: ECS is a second architecture to
+  learn alongside Rust and graphics.
+- `three-d`, `rend3` — higher-level renderers, less control
+- **Raw Vulkan / OpenGL — rejected.** ~1000 lines before a triangle.
+  Boilerplate cost with no benefit at this scale.
+
+**Optimisation** (all standard, all understood from CGI work)
+- Backface culling
+- Frustum culling
+- Greedy meshing — merge coplanar same-type faces into large quads
+- Instanced rendering for turtles
+- LOD via the existing octree levels
+- Chunk-level occlusion culling if it ever proves necessary
+
+Scan geometry is largely axis-aligned boxes (16×16×N corridors), so meshed
+chunks are extremely light. Combined with octree compression and lossy
+handling of low-importance regions (random caves, single ores), throughput
+is unlikely to be the constraint.
+
+**Networking**
+- `reqwest` or `ureq` — HTTP client against the server API
+- `tokio-tungstenite` — websocket for live turtle state
+- `serde` + `serde_json` — deserialisation
+
+Talks to the server over the same API the turtles use. Read-only by default,
+with an explicit control mode for anything that moves a turtle.
