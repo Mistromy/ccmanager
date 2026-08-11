@@ -1,11 +1,11 @@
-# Computercraft Turtle Swarm Manager
+# ComputerCraft Turtle Swarm Manager
 ## Constraints:
 ### scan cost:
 - each scan uses a certain amount of fuel based on the radius
 - scan is cube shaped
 ### storage
 - 16 storage slots in inventory:
-- periphiraleum hub can allow for more peripherals, but some might have to be in inventory
+- peripheralium hub can allow for more peripherals, but some might have to be in inventory
 - fuel in inventory, blocks etc
 - shulker boxes should work for bigger storage tho
 ### bandwidth
@@ -15,36 +15,24 @@
 - turtles scan the world as they travel and upload the scans to the server
 - the server stores the entire world, compressing the blocks into a few types (LODs).<br> E.g. `protected` (turtles can enter but not break stuff), and then a few generic block types: `stones`, `dirts`, etc
 - octrees and run length encoding on the 3d voxel map.
-- scan zones will have a ttl invalidation, accelerated by player heatmap frequency, so that places where the player often is expire faster prompting more frequent re-scans compared to places where the player never enters.
+- scan zones will have a ttl invalidation, accelerated by player heatmap frequency, so that places where the player often is, expire faster prompting more frequent re-scans compared to places where the player never enters.
 - turtles also generate their own heatmaps to optimize highways
 - a* pathfinding in virtual server world with weights for each voxel: air:1, blocks, extra for the extra fuel + expensive blocks have higher cost to avoid breaking them if possible.
-- scan always before interacting with the world. e.g. breaking or placing to have a guarante that the world is cached correctly.
+- scan always before interacting with the world. e.g. breaking or placing to have a guarantee that the world is cached correctly.
 ## Data model
 Turtle Struct:
-```go
-type Turtle struct {
-    name string
-    id int
-    Transform
-    storage storage
-    fuel int
-    queue []queue
-    task task
-    parent *Turtle
-    children []*Turtle
-    
-}
 
-type Transform struct {
-    x = int
-    y = int
-    z = int
-    direction = direction
-}
+- Name
+- id
+- Location
+- Storage
+- Fuel
+- Queue
+- Task
+- Parent
+- Children
+### Current Implementation:
 
-direction enum:
-north, west, east, south. 
-```
 ## Open questions
 ## Rejected alternatives + why
 
@@ -61,7 +49,7 @@ A 3D inspector for the cached world, built as a separate client against the serv
 - Greedy meshing for chunk geometry, instanced rendering for turtles
 
 ### Inspection
-- Filter and colour blocks by attribute: type, TTL / staleness, scan age,
+- Filter and color blocks by attribute: type, TTL / staleness, scan age,
   importance weight, protected/breakable
 - Overlay heatmaps: player presence, turtle traffic, rescan priority
 - Display planned A* paths per turtle
@@ -69,7 +57,7 @@ A 3D inspector for the cached world, built as a separate client against the serv
 
 ### Turtle management
 - Live stats per turtle: fuel, inventory, current task, queue depth
-- Parent/child and coalition relationships, visualised
+- Parent/child and coalition relationships, visualized
 - Manual control: remote reboot, halt, reassign task, manual movement
 - Task queue inspection and reordering
 
