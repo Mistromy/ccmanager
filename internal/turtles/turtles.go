@@ -1,6 +1,6 @@
 package turtles
 
-var turtles []Turtle
+var turtles = make(map[uint16]*Turtle)
 
 type Turtle struct {
 	name string

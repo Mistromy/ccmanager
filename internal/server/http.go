@@ -1,10 +1,12 @@
 package server
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 
 	"charm.land/log/v2"
+	"github.com/mistromy/ccmanager/internal/turtles"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -38,7 +40,22 @@ func RegisterTurtle(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	_, err := fmt.Fprint(w, "Registered Turtle")
+
+	type rr struct {
+		ID   uint16 `json:"id"`
+		Name string `json:"name"`
+	}
+
+	var req rr
+	err := json.NewDecoder(r.Body).Decode(&req)
+	if err != nil {
+		log.Error("bad json", "error", err)
+		return
+	}
+
+	turtles.Register(req.ID, req.Name)
+
+	_, err = fmt.Fprint(w, "Registered Turtle")
 	if err != nil {
 		log.Error("registering turtle", "error", err)
 	}
