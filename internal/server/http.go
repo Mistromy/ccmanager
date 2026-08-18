@@ -30,8 +30,12 @@ func RegisterPassword(w http.ResponseWriter, r *http.Request) {
 	p := r.Header.Get("Authorization")
 	var err error
 	hash, err = bcrypt.GenerateFromPassword([]byte(p), bcrypt.MinCost)
+
 	if err != nil {
 		log.Error("creating password", "error", err)
+		fmt.Fprint(w, fmt.Sprintf("error registering password. %v", err))
+	} else {
+		fmt.Fprint(w, fmt.Sprintf("registered password. hash length: %d", len(hash)))
 	}
 }
 
@@ -54,8 +58,9 @@ func RegisterTurtle(w http.ResponseWriter, r *http.Request) {
 	}
 
 	turtles.Register(req.ID, req.Name)
-
-	_, err = fmt.Fprint(w, "Registered Turtle")
+	msg := fmt.Sprintf("Registered Turtle: %v. ID: %d", req.Name, req.ID)
+	log.Info("registered turtle")
+	_, err = fmt.Fprint(w, msg)
 	if err != nil {
 		log.Error("registering turtle", "error", err)
 	}
