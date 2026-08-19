@@ -13,7 +13,6 @@ var (
 )
 
 func Register(id uint16, name string) error {
-	log.Info("Registering turtle", "id", id, "name", name)
 	_, ok := turtles[id]
 	if ok {
 		return ErrAlreadyRegistered

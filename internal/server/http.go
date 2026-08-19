@@ -72,7 +72,6 @@ func RegisterTurtle(w http.ResponseWriter, r *http.Request) {
 		return
 	} // handle register error
 	msg := fmt.Sprintf("Registered Turtle: %v. ID: %d", req.Name, req.ID)
-	log.Info("registered turtle")
 	_, _ = fmt.Fprint(w, msg)
 }
 
