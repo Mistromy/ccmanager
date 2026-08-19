@@ -13,21 +13,13 @@ import (
 
 var hash []byte
 
-func RegisterPassword(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-	p := r.Header.Get("Authorization")
+func RegisterPassword(password string) error {
 	var err error
-	hash, err = bcrypt.GenerateFromPassword([]byte(p), bcrypt.MinCost)
-
+	hash, err = bcrypt.GenerateFromPassword([]byte(password), bcrypt.MinCost)
 	if err != nil {
-		log.Error("creating password", "error", err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-	} else {
-		w.WriteHeader(http.StatusNoContent)
+		return err
 	}
+	return nil
 }
 
 func RegisterTurtle(w http.ResponseWriter, r *http.Request) {
@@ -117,7 +109,6 @@ func updateTurtle(w http.ResponseWriter, r *http.Request) {
 }
 
 func Start(port uint16) error {
-	http.HandleFunc("/register", RegisterPassword)
 	http.HandleFunc("/registerTurtle", RegisterTurtle)
 	http.HandleFunc("/getTurtle", GetTurtle)
 	http.HandleFunc("/getAll", GetTurtleList)

@@ -10,25 +10,31 @@ import (
 
 var port uint16
 
-func Setup() (uint16, error) {
+func Setup() (uint16, string, error) {
 	log.Info("Choose to port to run server")
 
 	var tempPort string
-	err := huh.NewInput().
-		Title("Port").
-		Value(&tempPort).
-		Validate(func(input string) error {
-			err := validatePort(input)
-			if err != nil {
-				return err
-			}
-			return nil
-		}).
-		Run()
+	var password string
+	form := huh.NewForm(
+		huh.NewGroup(
+			huh.NewInput().
+				Title("Port").
+				Value(&tempPort).
+				Validate(func(input string) error {
+					err := validatePort(input)
+					if err != nil {
+						return err
+					}
+					return nil
+				}),
+			huh.NewInput().
+				Title("Password").
+				Value(&password)))
+	err := form.Run()
 	if err != nil {
-		return 0, err
+		return 0, "", err
 	}
-	return port, nil
+	return port, password, nil
 }
 
 func validatePort(input string) error {
