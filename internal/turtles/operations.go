@@ -16,7 +16,7 @@ func Register(id uint16, name string) error {
 	_, ok := turtles[id]
 	if ok {
 		return ErrAlreadyRegistered
-	}
+	} // returns if turtle already exists
 	switch {
 	case len(name) == 0:
 		return ErrInvalidName
@@ -28,6 +28,16 @@ func Register(id uint16, name string) error {
 	t := Turtle{ID: id, Name: name}
 	turtles[id] = &t
 	log.Info("Registered Turtle", "id", turtles[id].ID, "name", turtles[id].Name)
+	return nil
+}
+
+func Update(id uint16, t Turtle) error {
+	_, ok := turtles[id]
+	if !ok {
+		return ErrInvalidID
+	} // returns if turtle doesnt exist
+	turtles[id] = &t
+	log.Info("Updated Turtle", "data", t)
 	return nil
 }
 

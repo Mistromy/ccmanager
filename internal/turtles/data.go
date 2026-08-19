@@ -2,26 +2,12 @@ package turtles
 
 var turtles = make(map[uint16]*Turtle)
 
-// Turtle holds all data a turtle can hold
-//
-//	name
-//	id
-//	loc
-//	  x, y, z
-//	  rot
-//	fuel
-//	storage
-//	  id
-//	  name
-//	  count
-//	  slot
 type Turtle struct {
+	ID      uint16   `json:"id"`
 	Name    string   `json:"name"`
-	Storage [16]Item `json:"storage"`
 	Loc     Loc      `json:"loc"`
 	Fuel    int      `json:"fuel"`
-	ID      uint16   `json:"id"`
-	Rot     Rot      `json:"rot"`
+	Storage [16]Item `json:"storage"`
 }
 
 // Item is all the data a single slot / Item can hold.

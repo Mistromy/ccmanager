@@ -109,12 +109,29 @@ func GetTurtleList(w http.ResponseWriter, r *http.Request) {
 	_, _ = fmt.Fprint(w, turtles.GetAll())
 }
 
+func updateTurtle(w http.ResponseWriter, r *http.Request) {
+	ok := check(r, w, http.MethodPost)
+	if !ok {
+		return
+	}
+	var req turtles.Turtle
+	err := json.NewDecoder(r.Body).Decode(&req)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+	err = turtles.Update(req.ID, req)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+}
+
 func Start(port uint16) error {
 	http.HandleFunc("/status", handleStatus)
 	http.HandleFunc("/register", RegisterPassword)
 	http.HandleFunc("/registerTurtle", RegisterTurtle)
 	http.HandleFunc("/getTurtle", GetTurtle)
 	http.HandleFunc("/getAll", GetTurtleList)
+	http.HandleFunc("/updateTurtle", updateTurtle)
 	return http.ListenAndServe(fmt.Sprintf(":%d", port), nil)
 }
 
