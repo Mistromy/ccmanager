@@ -1,6 +1,8 @@
 package server
 
 import (
+	"bytes"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -10,7 +12,7 @@ import (
 
 func Test_check(t *testing.T) {
 	tests := []struct {
-		name          string // name of the test
+		name          string // Name of the test
 		requestMethod string // method used in the request GET, POST, etc
 		password      string // password sent with the request
 		requireMethod string //
@@ -40,17 +42,40 @@ func Test_check(t *testing.T) {
 }
 
 func TestRegisterTurtle(t *testing.T) {
-
-	tests := []struct {
-		name       string
-		id         uint16
-		turtleName string
-	}{
-		// TODO: Add test cases.
+	type data struct {
+		ID   uint64 `json:"id"`
+		Name string `json:"name"`
 	}
+	tests := []struct {
+		name       string // Name of the test
+		data       data
+		wantStatus int // wanted http return status
+	}{
+		{"good", data{ID: 1, Name: "Name"}, http.StatusOK},
+		{"ID zero", data{ID: 0, Name: "Name"}, http.StatusBadRequest},
+		{"already exists", data{ID: 1, Name: "Name"}, http.StatusConflict},
+		{"max ID", data{ID: 65535, Name: "Name"}, http.StatusOK},
+		{"ID too big", data{ID: 65536, Name: "Name"}, http.StatusBadRequest},
+		{"no Name", data{ID: 2, Name: ""}, http.StatusBadRequest},
+		{"50 character Name", data{ID: 3, Name: "12345678901234567890123456789012345678901234567890"}, http.StatusOK},
+		{"49 character Name", data{ID: 4, Name: "1234567890123456789012345678901234567890123456789"}, http.StatusOK},
+		{"50 character Name", data{ID: 5, Name: "123456789012345678901234567890123456789012345678901"}, http.StatusBadRequest},
+		{"no ID at all", data{Name: "Name"}, http.StatusBadRequest},
+		{"no Name at all", data{ID: 6}, http.StatusBadRequest},
+		{"no data", data{}, http.StatusBadRequest},
+	}
+	hash, _ = bcrypt.GenerateFromPassword([]byte("correct"), bcrypt.MinCost)
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			RegisterTurtle(tt.args.w, tt.args.r)
+			body, _ := json.Marshal(tt.data)
+			r := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader(body))
+			r.Header.Set("Authorization", "correct")
+			w := httptest.NewRecorder()
+			RegisterTurtle(w, r)
+			if w.Code != tt.wantStatus {
+				t.Errorf("RegisterTurtle() code = %v, wantStatus %v", w.Code, tt.wantStatus)
+			}
 		})
 	}
 }

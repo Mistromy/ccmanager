@@ -2,6 +2,7 @@ package server
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 
@@ -46,24 +47,33 @@ func RegisterTurtle(w http.ResponseWriter, r *http.Request) {
 	}
 
 	type rr struct {
-		ID   uint16 `json:"id"`
-		Name string `json:"name"`
+		ID   uint16 `json:"ID"`
+		Name string `json:"Name"`
 	}
 
 	var req rr
 	err := json.NewDecoder(r.Body).Decode(&req)
 	if err != nil {
-		log.Error("bad json", "error", err)
+		log.Debug("bad json", "error", err)
+		msg := fmt.Sprintf("error: %v", err)
+		http.Error(w, msg, http.StatusBadRequest)
 		return
-	}
+	} // handle malformatted json
 
-	turtles.Register(req.ID, req.Name)
+	err = turtles.Register(req.ID, req.Name)
+	if err != nil {
+		log.Debug("register failed", "error", err)
+		msg := fmt.Sprintf("error registering turtle %d, '%s'. %v", req.ID, req.Name, err)
+		if errors.Is(err, turtles.ErrAlreadyRegistered) {
+			http.Error(w, msg, http.StatusConflict)
+		} else {
+			http.Error(w, msg, http.StatusBadRequest)
+		}
+		return
+	} // handle register error
 	msg := fmt.Sprintf("Registered Turtle: %v. ID: %d", req.Name, req.ID)
 	log.Info("registered turtle")
-	_, err = fmt.Fprint(w, msg)
-	if err != nil {
-		log.Error("registering turtle", "error", err)
-	}
+	_, _ = fmt.Fprint(w, msg)
 }
 
 func Start(port uint16) error {
