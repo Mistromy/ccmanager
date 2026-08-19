@@ -27,6 +27,7 @@ func handleStatus(w http.ResponseWriter, r *http.Request) {
 func RegisterPassword(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
 	}
 	p := r.Header.Get("Authorization")
 	var err error
@@ -104,6 +105,7 @@ func GetTurtle(w http.ResponseWriter, r *http.Request) {
 func GetTurtleList(w http.ResponseWriter, r *http.Request) {
 	ok := check(r, w, http.MethodGet)
 	if !ok {
+		return
 	}
 	_, _ = fmt.Fprint(w, turtles.GetAll())
 }

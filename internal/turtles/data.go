@@ -42,8 +42,8 @@ type Loc struct {
 type Rot uint8
 
 const (
-	north Rot = iota
-	east
-	south
-	west
+	North Rot = iota
+	East
+	South
+	West
 )
