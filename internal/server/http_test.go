@@ -40,13 +40,11 @@ func Test_check(t *testing.T) {
 }
 
 func TestRegisterTurtle(t *testing.T) {
-	type args struct {
-		w http.ResponseWriter
-		r *http.Request
-	}
+
 	tests := []struct {
-		name string
-		args args
+		name       string
+		id         uint16
+		turtleName string
 	}{
 		// TODO: Add test cases.
 	}
