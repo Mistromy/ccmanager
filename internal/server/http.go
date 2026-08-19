@@ -33,9 +33,9 @@ func RegisterPassword(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		log.Error("creating password", "error", err)
-		fmt.Fprint(w, fmt.Sprintf("error registering password. %v", err))
+		_, _ = fmt.Fprint(w, fmt.Sprintf("error registering password. %v", err))
 	} else {
-		fmt.Fprint(w, fmt.Sprintf("registered password. hash length: %d", len(hash)))
+		_, _ = fmt.Fprint(w, fmt.Sprintf("registered password. hash length: %d", len(hash)))
 	}
 }
 
@@ -76,14 +76,14 @@ func Start(port uint16) error {
 func check(r *http.Request, w http.ResponseWriter, method string) bool {
 	if r.Method != method {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		log.Error("method not allowed", "method", method)
+		log.Debug("method not allowed", "method", method)
 		return false
 	}
 	p := r.Header.Get("Authorization")
 	err := bcrypt.CompareHashAndPassword(hash, []byte(p))
 	if err != nil {
 		http.Error(w, "Invalid password", http.StatusUnauthorized)
-		log.Error(err)
+		log.Debug(err)
 		return false
 	}
 	return true

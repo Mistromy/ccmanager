@@ -10,7 +10,7 @@ var (
 )
 
 func main() {
-	p, err := server.SetPort()
+	p, err := server.Setup()
 	if err != nil {
 		log.Fatal(err)
 	}

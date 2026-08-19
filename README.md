@@ -154,7 +154,7 @@ One turtle, hardcoded where necessary, end-to-end.
 - [ ] `bcrypt.MinCost` (cost 4) — raise before this is anything but a toy
 - [ ] `/register` is a state-changing GET — make it POST
 - [ ] `check()` argument order `(r, w, …)` → `(w, r, …)` to match `net/http`
-- [ ] `SetPort` returns the package-level `port` set as a side effect of
+- [ ] `Setup` returns the package-level `port` set as a side effect of
   `validatePort`. Make the validator pure —
   `strconv.ParseUint(s, 10, 16)` does the range check for free.
 

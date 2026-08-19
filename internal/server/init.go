@@ -10,7 +10,7 @@ import (
 
 var port uint16
 
-func SetPort() (uint16, error) {
+func Setup() (uint16, error) {
 	log.Info("Choose to port to run server")
 
 	var tempPort string
