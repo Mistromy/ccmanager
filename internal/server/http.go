@@ -13,17 +13,6 @@ import (
 
 var hash []byte
 
-func handleStatus(w http.ResponseWriter, r *http.Request) {
-	ok := check(r, w, http.MethodGet)
-	if !ok {
-		return
-	}
-	_, err := fmt.Fprint(w, "ok")
-	if err != nil {
-		log.Error(err)
-	}
-}
-
 func RegisterPassword(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -35,9 +24,9 @@ func RegisterPassword(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		log.Error("creating password", "error", err)
-		_, _ = fmt.Fprint(w, fmt.Sprintf("error registering password. %v", err))
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 	} else {
-		_, _ = fmt.Fprint(w, fmt.Sprintf("registered password. hash length: %d", len(hash)))
+		w.WriteHeader(http.StatusNoContent)
 	}
 }
 
@@ -71,8 +60,7 @@ func RegisterTurtle(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	} // handle register error
-	msg := fmt.Sprintf("Registered Turtle: %v. ID: %d", req.Name, req.ID)
-	_, _ = fmt.Fprint(w, msg)
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func GetTurtle(w http.ResponseWriter, r *http.Request) {
@@ -114,19 +102,21 @@ func updateTurtle(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+
 	var req turtles.Turtle
-	err := json.NewDecoder(r.Body).Decode(&req)
+	err := json.NewDecoder(r.Body).Decode(&req) // decode json
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
-	err = turtles.Update(req.ID, req)
+
+	err = turtles.Update(req.ID, req) // update pointer with value from req
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func Start(port uint16) error {
-	http.HandleFunc("/status", handleStatus)
 	http.HandleFunc("/register", RegisterPassword)
 	http.HandleFunc("/registerTurtle", RegisterTurtle)
 	http.HandleFunc("/getTurtle", GetTurtle)
