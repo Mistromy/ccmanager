@@ -49,12 +49,12 @@ Nothing talks to a real turtle yet. No persistence. No commands.
 
 ### Scan
 - **Radius 8 is free. Radius up to 16 costs fuel.** That splits scanning in
-  two: cheap high-frequency passive scans while travelling, and deliberate
+  two: cheap high-frequency passive scans while traveling, and deliberate
   paid scans where the information gain justifies it.
 - Cube shaped. Radius *r* means side `2r+1` — r=8 is 17³ = 4,913 blocks,
   r=16 is 33³ = 35,937.
 - Two scanners available: Plethora and Unlimited Peripheral Works. Different
-  return shapes; normalise at the Lua layer.
+  return shapes; normalize at the Lua layer.
 
 ### Turtle inventory and peripherals
 - 16 inventory slots
@@ -62,13 +62,13 @@ Nothing talks to a real turtle yet. No persistence. No commands.
   the Peripheralium Hub
 - Peripheralium Hub: base tier 3 peripherals, netherite tier 7
 - Extra peripherals carried in inventory and swapped at runtime
-- Baseline non-specialised turtle: ender modem, scanner, chunkloader, tool
+- Baseline non-specialized turtle: ender modem, scanner, chunkloader, tool
   (caps out the base hub)
 - Shulker storage system: later
 
 ### Network
 - CC:Tweaked HTTP runs **off-tick** on a Java thread
-- CC:Tweaked Lua runs **on-tick** — serialisation is the cost that times you
+- CC:Tweaked Lua runs **on-tick** — serialization is the cost that times you
   out, not the transfer
 - Config caps concurrent HTTP requests and websockets, per-computer and
   globally. Check `computercraft-server.toml`.

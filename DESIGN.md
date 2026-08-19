@@ -360,7 +360,7 @@ only if profiling says so.
 
 ### 3.5 Access tiers
 
-**The load-bearing realisation: `A*` needs random access; RLE only gives
+**The load-bearing realization: `A*` needs random access; RLE only gives
 sequential access.** You cannot compute the cost of a coordinate without
 knowing what block is there, so a compressed chunk must be decoded before
 pathfinding through it.
@@ -379,7 +379,7 @@ Which tier a chunk sits in is driven by the combined player + turtle heatmap.
 
 **zstd:** lossless, byte-identical. ~200–500 MB/s compress, **1–2 GB/s
 decompress regardless of level**. Levels 1–22. The asymmetry works in your
-favour: compress cold chunks slowly in background, decompress instantly on
+favor: compress cold chunks slowly in background, decompress instantly on
 access. Decompressing a 4KB chunk is microseconds. Don't compress hot chunks —
 microseconds × millions of lookups adds up.
 
@@ -431,7 +431,7 @@ rescan.
 ### 3.8 Serialisation
 
 **Chunk payloads: write raw bytes.** The chunk *is* a byte array; there's no
-serialisation layer needed. `f.Write(data)` plus a small header.
+serialization layer needed. `f.Write(data)` plus a small header.
 
 **Metadata (scan records, turtle state, block registry): `encoding/gob`.**
 Native Go binary format, handles structs/maps/slices automatically, far smaller
@@ -589,7 +589,7 @@ outcome, not a hang.
 **`A*`'s own bookkeeping is usually bigger than the world data.** Open set,
 closed set, and came-from map for a long path run to tens of thousands of
 nodes. Preallocate, reuse between runs, prefer flat arrays indexed by node over
-maps. This matters more than chunk cache behaviour.
+maps. This matters more than chunk cache behavior.
 
 Cache sizes for reference (modern desktop): L1d 32–48KB (~4 cycles), L2
 512KB–2MB (~14), L3 8–64MB (~40–50), RAM ~200+. A 50-chunk working set at 16³
@@ -601,7 +601,7 @@ intrinsics.
 
 **Replan on relevance, not on change.** A scan 500 blocks away doesn't affect
 the current path. Check whether changed chunks intersect the remaining path or
-its neighbourhood; if not, ignore. Kills the vast majority of replans for free.
+its neighborhood; if not, ignore. Kills the vast majority of replans for free.
 
 **When replanning, use an incremental algorithm — `D* Lite` (built on
 `LPA*`).** Designed for exactly this: an agent moving through partially-known
@@ -742,7 +742,7 @@ than growing without bound. Four hours AFK doesn't blow out the map.
 **AFK gating:** only add when position/rotation changed since the last sample.
 Movement, not presence. Removes the problem at source.
 
-**Log scale on the display colour ramp.** Even with correct data, the base will
+**Log scale on the display color ramp.** Even with correct data, the base will
 be an order of magnitude above everything else; log compresses that so
 mid-range activity stays visible instead of crushing to black. Expose the
 exponent as a UI slider and tune live — this is a display curve problem, not a
@@ -771,12 +771,12 @@ Rust exists.
 
 ### 8.3 Four surfaces, split by who's asking
 
-| Surface       | Auth                                   | Purpose                        |
-|---------------|----------------------------------------|--------------------------------|
+| Surface       | Auth                                    | Purpose                        |
+|---------------|-----------------------------------------|--------------------------------|
 | `/turtle/*`   | shared credential (or per-turtle later) | fleet traffic                  |
-| `/api/*`      | user accounts, scoped permissions      | the Rust client, human actions |
-| `/internal/*` | separate service credential            | service-to-service             |
-| public stats  | none, read-only                        | portfolio display              |
+| `/api/*`      | user accounts, scoped permissions       | the Rust client, human actions |
+| `/internal/*` | separate service credential             | service-to-service             |
+| public stats  | none, read-only                         | portfolio display              |
 
 All on one server, different route prefixes, different middleware per group.
 `http.NewServeMux()` plus a prefix-based wrapper — no separate processes
@@ -790,7 +790,7 @@ Tailscale. Cost is one line per route. Tailscale ACLs restrict which nodes
 reach which ports and complement app-level auth rather than replacing it.
 
 **BOLA sits on top of that** and is the thing the middleware can't do:
-authenticated ≠ authorised for *this object*. Once the broker holds one
+authenticated ≠ authorized for *this object*. Once the broker holds one
 websocket for the whole fleet, turtle identity inside that stream is a message
 field, not a verified credential — turtle 46 claiming to be turtle 12 is just a
 number. Fine while everything is yours; worth knowing it's the same shape as
@@ -846,7 +846,7 @@ needs the second.)*
 
 ### 8.5 HTTP correctness rules
 
-These are the ones that produce silent wrong behaviour rather than errors:
+These are the ones that produce silent wrong behavior rather than errors:
 
 - **Exactly one write per response.** The first write locks in the status code.
   `Fprint` followed by `http.Error` sends 200 with both bodies concatenated and
@@ -1034,11 +1034,11 @@ these sizes.
 
 ### 10.3 Inspection
 
-- Filter/colour blocks by type, TTL/staleness, scan age, importance,
+- Filter/color blocks by type, TTL/staleness, scan age, importance,
   protected/breakable
 - Overlay heatmaps: player presence, turtle traffic, rescan priority
 - Display planned `A*` paths per turtle — **and the explored set and frontier**,
-  colour-coded by cost. That is the single most useful thing for tuning a
+  color-coded by cost. That is the single most useful thing for tuning a
   pathfinder: you stop reasoning about why it chose a route and look at it.
 - Highlight cached-vs-last-scanned discrepancies
 
@@ -1256,33 +1256,33 @@ them beats learning a framework's abstraction over them.
 
 ## 14. Rejected / deferred
 
-| Thing                                              | Status                       | Why                                                                                                                                                                                                                                                                                              |
-|----------------------------------------------------|------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| Octree for world storage                           | **rejected**                 | deep/narrow, pointer overhead dominates on sparse irregular data                                                                                                                                                                                                                                 |
-| Dynamic bounded regions + BVH/R-tree               | **rejected for voxels**      | lookup becomes search; overlap merge/split; no dedup; header cost. *Retained for scan records*                                                                                                                                                                                                   |
-| Lossy compression of "wild" areas                  | **deferred, probably never** | ~2× on top of a 50–100× stack; irreversible; needs a maintained never-discard list; silent pathfinder wrongness. Better as **display-time LOD** — downsample for rendering, keep the full data                                                                                                    |
-| Compressing blocks to a few generic types          | **rejected**                 | real types are needed for X-ray, chests, spawners, ore identification                                                                                                                                                                                                                            |
-| Temporal / video-codec compression across Z slices | **rejected**                 | video works by *motion estimation* between displaced copies of the same scene; Z+1 is a different part of the world, not a displacement. Spatial correlation is already captured by RLE and zstd                                                                                                  |
-| Temporal compression **across rescans**            | **valid but unwanted**       | genuinely compresses (few blocks change); only useful for scan *history*                                                                                                                                                                                                                         |
-| Timelapse via stored diffs                         | **rejected**                 | needs a change log instrumenting every block update, not periodic diffs                                                                                                                                                                                                                          |
+| Thing                                              | Status                       | Why                                                                                                                                                                                                                                                                                                                                                                                                                               |
+|----------------------------------------------------|------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Octree for world storage                           | **rejected**                 | deep/narrow, pointer overhead dominates on sparse irregular data                                                                                                                                                                                                                                                                                                                                                                  |
+| Dynamic bounded regions + BVH/R-tree               | **rejected for voxels**      | lookup becomes search; overlap merge/split; no dedup; header cost. *Retained for scan records*                                                                                                                                                                                                                                                                                                                                    |
+| Lossy compression of "wild" areas                  | **deferred, probably never** | ~2× on top of a 50–100× stack; irreversible; needs a maintained never-discard list; silent pathfinder wrongness. Better as **display-time LOD** — downsample for rendering, keep the full data                                                                                                                                                                                                                                    |
+| Compressing blocks to a few generic types          | **rejected**                 | real types are needed for X-ray, chests, spawners, ore identification                                                                                                                                                                                                                                                                                                                                                             |
+| Temporal / video-codec compression across Z slices | **rejected**                 | video works by *motion estimation* between displaced copies of the same scene; Z+1 is a different part of the world, not a displacement. Spatial correlation is already captured by RLE and zstd                                                                                                                                                                                                                                  |
+| Temporal compression **across rescans**            | **valid but unwanted**       | genuinely compresses (few blocks change); only useful for scan *history*                                                                                                                                                                                                                                                                                                                                                          |
+| Timelapse via stored diffs                         | **rejected**                 | needs a change log instrumenting every block update, not periodic diffs                                                                                                                                                                                                                                                                                                                                                           |
 | OpenVDB (library or format)                        | **deferred → "tinyvdb"**     | structure is a good fit (shallow wide tree, dense leaves, occupancy bitmasks — essentially the chunk map plus a middle level). But no mature Go implementation, cgo brings a heavy C++ dep, and the *file format* is a large reverse-engineering job. Achievable version: implement the structure in Go, write a minimal subset of the format so Blender can open it. **Name it tinyvdb; state clearly it is not VDB-compatible** |
-| Jump Point Search                                  | **rejected**                 | assumes uniform grid costs; this world has variable ones. Weighted variants lose most of the benefit                                                                                                                                                                                             |
-| GPU pathfinding                                    | **rejected**                 | GPU A* parallelises *many independent searches*, not one. A single search is inherently sequential, and moving world data across PCIe per query makes the real bottleneck worse                                                                                                                   |
-| Per-step `gps.locate()`                            | **rejected**                 | modem broadcast + multi-host reply + timeout, per block. Movement primitives return booleans; dead reckoning is exact                                                                                                                                                                            |
-| Per-action acknowledgements for movement           | **rejected**                 | one round trip per block is the polling storm the batched protocol avoids; the heartbeat carries the same information on a timer. Kept only for actions that can half-succeed                                                                                                                    |
-| Infinite cost for protected blocks                 | **rejected**                 | propagates through addition, NaN risk with floats. Use impassable / skip successor generation                                                                                                                                                                                                    |
-| Hard-restricting search to the start-goal box      | **rejected**                 | the optimal path legitimately leaves it when a wall is in the way. Bias only                                                                                                                                                                                                                     |
-| Building the broker for v0.1                       | **deferred**                 | no measured limit yet                                                                                                                                                                                                                                                                            |
-| A TUI for fleet inspection                         | **rejected for now**         | the interface is the API. `GET /turtles` + `watch` + `jq` is a live view with no code                                                                                                                                                                                                            |
-| Shared memory between Go and viewer                | **rejected**                 | gRPC or websocket over a local socket is far faster than needed. Shared memory remains a *quarantined learning project* only                                                                                                                                                                     |
-| Python anywhere in the core                        | **rejected**                 | adds a runtime, a dependency chain, and an interface boundary to a concurrency-heavy network service in exchange for nothing. Collaborator work should be **separate and bounded** — a dashboard, a log analyser, a bot against the API — not a module inside it                                  |
-| FFI offload (Rust/C++) from a custom mod           | **rejected**                 | the bottleneck is the **tick budget**, not Java's speed. Java is far faster than Lua for serialising 600 entries, and a mod can already spawn a thread — which is exactly what CC's HTTP does                                                                                                    |
-| Custom CC peripheral mod                           | **realistic, later**         | CC:Tweaked has a documented peripheral API for other mods. Good version: **a peripheral that does the expensive work in Java off the main thread and returns a compact result to Lua** — e.g. a pre-serialised binary blob of the whole ME network                                                |
-| Complex numbers / quaternions for rotation         | **rejected**                 | four axis-aligned states, `(r+1)%4`                                                                                                                                                                                                                                                              |
-| Secondary indexes on the turtle registry           | **rejected**                 | scan with a predicate; ~1µs at fleet scale; indexes are caches with a consistency problem                                                                                                                                                                                                        |
-| Value map for the registry                         | **rejected**                 | forgotten write-backs on error branches, and lost updates under concurrency that a mutex can't fix because read-modify-write spans statements                                                                                                                                                    |
-| Anonymous functions for memory scoping             | **rejected**                 | escape analysis decides stack vs heap; closures can *cause* escape. Scope is visibility, heap is lifetime — unrelated                                                                                                                                                                            |
-| `bevy` rejection                                   | **reversed**                 | see §10.5                                                                                                                                                                                                                                                                                        |
+| Jump Point Search                                  | **rejected**                 | assumes uniform grid costs; this world has variable ones. Weighted variants lose most of the benefit                                                                                                                                                                                                                                                                                                                              |
+| GPU pathfinding                                    | **rejected**                 | GPU A* parallelises *many independent searches*, not one. A single search is inherently sequential, and moving world data across PCIe per query makes the real bottleneck worse                                                                                                                                                                                                                                                   |
+| Per-step `gps.locate()`                            | **rejected**                 | modem broadcast + multi-host reply + timeout, per block. Movement primitives return booleans; dead reckoning is exact                                                                                                                                                                                                                                                                                                             |
+| Per-action acknowledgements for movement           | **rejected**                 | one round trip per block is the polling storm the batched protocol avoids; the heartbeat carries the same information on a timer. Kept only for actions that can half-succeed                                                                                                                                                                                                                                                     |
+| Infinite cost for protected blocks                 | **rejected**                 | propagates through addition, NaN risk with floats. Use impassable / skip successor generation                                                                                                                                                                                                                                                                                                                                     |
+| Hard-restricting search to the start-goal box      | **rejected**                 | the optimal path legitimately leaves it when a wall is in the way. Bias only                                                                                                                                                                                                                                                                                                                                                      |
+| Building the broker for v0.1                       | **deferred**                 | no measured limit yet                                                                                                                                                                                                                                                                                                                                                                                                             |
+| A TUI for fleet inspection                         | **rejected for now**         | the interface is the API. `GET /turtles` + `watch` + `jq` is a live view with no code                                                                                                                                                                                                                                                                                                                                             |
+| Shared memory between Go and viewer                | **rejected**                 | gRPC or websocket over a local socket is far faster than needed. Shared memory remains a *quarantined learning project* only                                                                                                                                                                                                                                                                                                      |
+| Python anywhere in the core                        | **rejected**                 | adds a runtime, a dependency chain, and an interface boundary to a concurrency-heavy network service in exchange for nothing. Collaborator work should be **separate and bounded** — a dashboard, a log analyser, a bot against the API — not a module inside it                                                                                                                                                                  |
+| FFI offload (Rust/C++) from a custom mod           | **rejected**                 | the bottleneck is the **tick budget**, not Java's speed. Java is far faster than Lua for serialising 600 entries, and a mod can already spawn a thread — which is exactly what CC's HTTP does                                                                                                                                                                                                                                     |
+| Custom CC peripheral mod                           | **realistic, later**         | CC:Tweaked has a documented peripheral API for other mods. Good version: **a peripheral that does the expensive work in Java off the main thread and returns a compact result to Lua** — e.g. a pre-serialised binary blob of the whole ME network                                                                                                                                                                                |
+| Complex numbers / quaternions for rotation         | **rejected**                 | four axis-aligned states, `(r+1)%4`                                                                                                                                                                                                                                                                                                                                                                                               |
+| Secondary indexes on the turtle registry           | **rejected**                 | scan with a predicate; ~1µs at fleet scale; indexes are caches with a consistency problem                                                                                                                                                                                                                                                                                                                                         |
+| Value map for the registry                         | **rejected**                 | forgotten write-backs on error branches, and lost updates under concurrency that a mutex can't fix because read-modify-write spans statements                                                                                                                                                                                                                                                                                     |
+| Anonymous functions for memory scoping             | **rejected**                 | escape analysis decides stack vs heap; closures can *cause* escape. Scope is visibility, heap is lifetime — unrelated                                                                                                                                                                                                                                                                                                             |
+| `bevy` rejection                                   | **reversed**                 | see §10.5                                                                                                                                                                                                                                                                                                                                                                                                                         |
 
 ### Create Aeronautics / physics vehicles — investigated, blocked on platform
 

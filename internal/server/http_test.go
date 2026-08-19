@@ -51,14 +51,14 @@ func TestRegisterTurtle(t *testing.T) {
 		data       data
 		wantStatus int // wanted http return status
 	}{
-		{"good", data{ID: 1, Name: "Name"}, http.StatusOK},
+		{"good", data{ID: 1, Name: "Name"}, http.StatusNoContent},
 		{"ID zero", data{ID: 0, Name: "Name"}, http.StatusBadRequest},
 		{"already exists", data{ID: 1, Name: "Name"}, http.StatusConflict},
-		{"max ID", data{ID: 65535, Name: "Name"}, http.StatusOK},
+		{"max ID", data{ID: 65535, Name: "Name"}, http.StatusNoContent},
 		{"ID too big", data{ID: 65536, Name: "Name"}, http.StatusBadRequest},
 		{"no Name", data{ID: 2, Name: ""}, http.StatusBadRequest},
-		{"50 character Name", data{ID: 3, Name: "12345678901234567890123456789012345678901234567890"}, http.StatusOK},
-		{"49 character Name", data{ID: 4, Name: "1234567890123456789012345678901234567890123456789"}, http.StatusOK},
+		{"50 character Name", data{ID: 3, Name: "12345678901234567890123456789012345678901234567890"}, http.StatusNoContent},
+		{"49 character Name", data{ID: 4, Name: "1234567890123456789012345678901234567890123456789"}, http.StatusNoContent},
 		{"50 character Name", data{ID: 5, Name: "123456789012345678901234567890123456789012345678901"}, http.StatusBadRequest},
 		{"no ID at all", data{Name: "Name"}, http.StatusBadRequest},
 		{"no Name at all", data{ID: 6}, http.StatusBadRequest},

@@ -1,29 +1,19 @@
 package main
 
 import (
-	"os"
-
 	"charm.land/log/v2"
 	"github.com/mistromy/ccmanager/internal/server"
 )
 
 func main() {
 	var (
-		port     uint16
-		password string
-		err      error
+		port uint16
+		err  error
 	)
 
-	if len(os.Args) > 1 && os.Args[1] == "-c" {
-		port, password, err = server.Setup() // open form to get password and port.
-		if err != nil {
-			log.Fatal(err)
-		}
-	}
-
-	err = server.RegisterPassword(password) // send password to http
+	port, err = server.Setup() // open form to get password and port.
 	if err != nil {
-		log.Error("creating password", "error", err)
+		log.Fatal(err)
 	}
 
 	log.Info("Starting ComputerCraft Server.", "port", port)

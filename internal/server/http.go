@@ -13,13 +13,17 @@ import (
 
 var hash []byte
 
-func RegisterPassword(password string) error {
+func setHash(h []byte) {
+	hash = h
+}
+
+func RegisterPassword(password string) ([]byte, error) {
 	var err error
 	hash, err = bcrypt.GenerateFromPassword([]byte(password), bcrypt.MinCost)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return nil
+	return hash, nil
 }
 
 func RegisterTurtle(w http.ResponseWriter, r *http.Request) {
