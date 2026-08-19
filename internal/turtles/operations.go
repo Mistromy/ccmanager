@@ -26,17 +26,20 @@ func Register(id uint16, name string) error {
 	case id == 0:
 		return ErrInvalidID
 	}
-	t := Turtle{id: id, name: name}
+	t := Turtle{ID: id, Name: name}
 	turtles[id] = &t
-	log.Info("Registered Turtle", "id", turtles[id].id, "name", turtles[id].name)
+	log.Info("Registered Turtle", "id", turtles[id].ID, "name", turtles[id].Name)
 	return nil
-}
-
-func Fill(turtle Turtle) {
-
-	return
 }
 
 func Get(id uint16) *Turtle {
 	return turtles[id]
+}
+
+func GetAll() []uint16 {
+	var tl []uint16
+	for _, t := range turtles {
+		tl = append(tl, t.ID)
+	}
+	return tl
 }

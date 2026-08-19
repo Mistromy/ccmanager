@@ -50,7 +50,6 @@ func RegisterTurtle(w http.ResponseWriter, r *http.Request) {
 		ID   uint16 `json:"ID"`
 		Name string `json:"Name"`
 	}
-
 	var req rr
 	err := json.NewDecoder(r.Body).Decode(&req)
 	if err != nil {
@@ -76,13 +75,51 @@ func RegisterTurtle(w http.ResponseWriter, r *http.Request) {
 	_, _ = fmt.Fprint(w, msg)
 }
 
+func GetTurtle(w http.ResponseWriter, r *http.Request) {
+	ok := check(r, w, http.MethodGet)
+	if !ok {
+		return
+	} // return if auth check fails.
+
+	type rr struct {
+		ID uint16 `json:"ID"`
+	}
+	var req rr
+	err := json.NewDecoder(r.Body).Decode(&req)
+	if err != nil {
+		log.Debug("bad json", "error", err)
+		msg := fmt.Sprintf("error: %v", err)
+		http.Error(w, msg, http.StatusBadRequest)
+		return
+	} // handle json error
+
+	turtle := turtles.Get(req.ID)
+	w.Header().Set("Content-Type", "application/json")
+	err = json.NewEncoder(w).Encode(turtle)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+}
+
+func GetTurtleList(w http.ResponseWriter, r *http.Request) {
+	ok := check(r, w, http.MethodGet)
+	if !ok {
+	}
+	_, _ = fmt.Fprint(w, turtles.GetAll())
+}
+
 func Start(port uint16) error {
 	http.HandleFunc("/status", handleStatus)
 	http.HandleFunc("/register", RegisterPassword)
 	http.HandleFunc("/registerTurtle", RegisterTurtle)
+	http.HandleFunc("/getTurtle", GetTurtle)
+	http.HandleFunc("/getAll", GetTurtleList)
 	return http.ListenAndServe(fmt.Sprintf(":%d", port), nil)
 }
 
+// check verifies that the method of the request is correct.
+//
+// also performs authentication comparing password to store password hash
 func check(r *http.Request, w http.ResponseWriter, method string) bool {
 	if r.Method != method {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)

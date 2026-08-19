@@ -16,32 +16,33 @@ var turtles = make(map[uint16]*Turtle)
 //	  count
 //	  slot
 type Turtle struct {
-	name string
-	id   uint16
-	loc
-	fuel    int
-	storage [16]item
+	Name    string   `json:"name"`
+	Storage [16]Item `json:"storage"`
+	Loc     Loc      `json:"loc"`
+	Fuel    int      `json:"fuel"`
+	ID      uint16   `json:"id"`
+	Rot     Rot      `json:"rot"`
 }
 
-// item is all the data a single slot / item can hold.
-type item struct {
-	id    string
-	name  string
-	count uint8
-	slot  uint8
+// Item is all the data a single slot / Item can hold.
+type Item struct {
+	Id    string
+	Name  string
+	Count uint8
+	Slot  uint8
 }
 
-// loc stores the coordinates and a rotation
-type loc struct {
-	x, y, z int
-	rot
+// Loc stores the coordinates and a rotation
+type Loc struct {
+	X, Y, Z int
+	Rot
 }
 
-// rot is an enum storing the direction a turtle is facing
-type rot uint8
+// Rot is an enum storing the direction a turtle is facing
+type Rot uint8
 
 const (
-	north rot = iota
+	north Rot = iota
 	east
 	south
 	west

@@ -47,7 +47,7 @@ created with `make` at startup. Exported functions are the only doors in.
   falls out of the growth strategy: when a map exceeds its load factor it
   reallocates buckets and rehashes, physically moving every value. Allowing
   pointers into map values would create dangling pointers.
-- A `Turtle` is ~700 bytes (the `[16]Item` array is stored *inline* — arrays
+- A `Turtle` is ~700 bytes (the `[16]item` array is stored *inline* — arrays
   are values in Go). Copying 8 bytes beats copying 700.
 - The value-map alternative — read a copy, modify, write back — works but has
   two failure modes: the write-back you forget on an error branch, and **lost
@@ -972,11 +972,11 @@ well under a second. The dreaded scenario was the diff, and it's been dropped.
 **Write the naive full-dump version, time it, print the string length** before
 designing any byte format.
 
-### 9.2 Item identity
+### 9.2 item identity
 
 - **Counts need uint32 minimum, realistically uint64.** AE2 stores counts as
   64-bit longs; a single 64k cell of one item blows past uint16 alone.
-- **Item stacks ≠ item types.** AE2 stores stacks with components — enchanted
+- **item stacks ≠ item types.** AE2 stores stacks with components — enchanted
   books, damaged tools, fluids, gas. "Diamond pickaxe with Efficiency V and 12
   damage" is a distinct entry from "diamond pickaxe."
 - The raw table includes ID, Name, count, and **all NBT**, which is where the

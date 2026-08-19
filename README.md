@@ -113,7 +113,7 @@ package turtles
 type Turtle struct {
     // declare largest → smallest for padding
     Name    string
-    Storage [16]Item // inline, ~640 bytes — arrays are values in Go
+    Storage [16]item // inline, ~640 bytes — arrays are values in Go
     Loc     Loc
     Fuel    int
     Queue   []Command
