@@ -1,0 +1,39 @@
+# Lua notes
+
+Known issues and things to add later. Kept short on purpose.
+
+## Known issues
+
+- **Modem messages are dropped while the broker is reconnecting.** `sleep()`
+  consumes and discards events, so anything a turtle transmits during a backoff
+  delay is gone. Only harmless while the server ignores uplink data.
+- **Channel constants are duplicated.** `brokerChannel = 0` lives in both
+  scripts and `allChannel = 65535` in the turtle. Nothing enforces agreement.
+- **A broadcast reaches turtles only.** The broker does not hear its own
+  transmissions, so rebooting everything is `65535 reboot` then `0 reboot`.
+- **`allChannel` 65535 is also rednet's broadcast channel.** Turtles listening
+  there receive every rednet broadcast in range. Rednet wraps payloads in a
+  table, so a `type(message) == "string"` guard filters all of it — but a raw
+  modem sending plain strings on 65535 would still be parsed as a command.
+  Moving the fleet broadcast to an unused channel is the real fix; the wire
+  address can stay `65535` with the broker mapping it.
+- **A turtle that is off or out of range silently misses commands.** No ack, no
+  correlation ID, no retry.
+- **The turtle blocks in its event loop.** It can do nothing else until this
+  becomes a `parallel` call.
+- **Startup scripts are installed by hand.** Neither script updates its own
+  `startup.lua` from a disk any more; the broker updates itself from the server
+  instead, and the turtle's bootstrap is small enough to rarely change.
+- **`timeout` in the `http.get` options table needs a recent CC:Tweaked.** If it
+  errors on an older build, drop the field and the server config's `http.timeout`
+  applies instead.
+
+## Later
+
+- Envelope on the uplink so the server can tell a register from an update from
+  a failure report. Currently all three arrive as bare strings.
+- Queue uplink messages while disconnected instead of dropping them.
+- A server command that triggers a broker update, rather than only on boot.
+- Broker wakes the fleet on server reconnect.
+- Dispatch table instead of the `if words[1] == ...` chain, once there is more
+  than one command.

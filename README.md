@@ -85,7 +85,7 @@ Nothing talks to a real turtle yet. No persistence. No commands.
 ## Layout
 
 ```
-cmd/server        → entry point, wiring
+parts/server        → entry point, wiring
 internal/server   → HTTP shell: routing, auth, decoding, status mapping
 internal/turtles  → domain: registry, turtle state, validation, commands
 internal/utils    → shared helpers

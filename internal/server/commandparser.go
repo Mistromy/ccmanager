@@ -1,0 +1,50 @@
+package server
+
+import (
+	"bufio"
+	"fmt"
+	"os"
+	"strconv"
+	"strings"
+
+	"charm.land/log/v2"
+	"github.com/gorilla/websocket"
+)
+
+func parse(s string) {
+	parts := strings.Fields(s)
+	if len(parts) == 0 {
+		return
+	}
+	if id, err := strconv.ParseUint(parts[0], 10, 16); err == nil {
+		turtleCommand(uint16(id), parts[1:])
+	} else {
+		switch parts[0] {
+		case "-1":
+			turtleCommand(65535, parts[1:])
+		case "getblock":
+			log.Info("getblock")
+		case "list":
+			log.Info("list")
+		default:
+			log.Info("unknown command: %s", parts[0])
+		}
+	}
+}
+
+func turtleCommand(id uint16, args []string) string {
+	err := brokerConn.WriteMessage(websocket.TextMessage, []byte(fmt.Sprintf("%d %v", id, strings.Join(args, " "))))
+	log.Debug("sent message", "id", id, "message", fmt.Sprintf("%d %v", id, strings.Join(args, " ")))
+	if err != nil {
+		log.Error("sending command", "error", err)
+		return err.Error()
+	}
+	return ""
+}
+
+func TuiInput() {
+	scanner := bufio.NewScanner(os.Stdin)
+	for scanner.Scan() {
+		parse(scanner.Text())
+	}
+}

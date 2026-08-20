@@ -10,6 +10,8 @@ import (
 )
 
 func main() {
+	log.SetLevel(log.DebugLevel)
+	log.SetReportCaller(true)
 	var (
 		port uint16
 		err  error
@@ -30,9 +32,11 @@ func main() {
 			log.Fatal("Http error", "error", err)
 		}
 	}()
+	go server.TuiInput()
 	<-c
 	err = turtles.SaveData("turtles.json")
 	if err != nil {
 		log.Error("saving data", "path", "turtles.json")
 	}
+	log.Info("Stopping ComputerCraft Server.", "port", port)
 }
