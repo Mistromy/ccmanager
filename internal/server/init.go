@@ -57,7 +57,10 @@ func loadConfig(path string) (uint16, []byte) {
 	}{
 		Port: 0, Hash: nil,
 	}
-	json.Unmarshal(data, &cfg)
+	_ = json.Unmarshal(data, &cfg)
+	if cfg.Port == 0 {
+		log.Fatal("error loading json. restart program with -c")
+	}
 	return cfg.Port, cfg.Hash
 }
 
@@ -68,16 +71,17 @@ func Setup() (uint16, error) {
 		hash []byte
 	)
 	const path = "config.json"
-	if needsForm(path) {
+	if needsForm(path) { // first start or -c flag used
 		var password string
 		port, password, err = OpenForm()
-		hash, err = RegisterPassword(password)
-	} else {
-		port, hash = loadConfig(path)
-		setHash(hash)
 		if err != nil {
 			return 0, err
 		}
+		hash, err = RegisterPassword(password)
+	} else { // config found
+		port, hash = loadConfig(path)
+		setHash(hash)
+		return port, nil
 	}
 	err = saveConfig(port, hash, path)
 	if err != nil {

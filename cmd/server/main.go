@@ -1,8 +1,12 @@
 package main
 
 import (
+	"os"
+	"os/signal"
+
 	"charm.land/log/v2"
 	"github.com/mistromy/ccmanager/internal/server"
+	"github.com/mistromy/ccmanager/internal/turtles"
 )
 
 func main() {
@@ -11,14 +15,24 @@ func main() {
 		err  error
 	)
 
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt)
+
 	port, err = server.Setup() // open form to get password and port.
 	if err != nil {
 		log.Fatal(err)
 	}
 
+	turtles.LoadData("turtles.json")
 	log.Info("Starting ComputerCraft Server.", "port", port)
-	err = server.Start(port) // start http server
+	go func() {
+		if err = server.Start(port); err != nil {
+			log.Fatal("Http error", "error", err)
+		}
+	}()
+	<-c
+	err = turtles.SaveData("turtles.json")
 	if err != nil {
-		log.Fatal("Http error", "error", err)
+		log.Error("saving data", "path", "turtles.json")
 	}
 }
