@@ -78,6 +78,11 @@ func RegisterTurtle(s string) {
 	if err != nil {
 		log.Error("register failed", "error", err)
 	} // handle register error
+
+	err = turtles.SaveData("turtles.json")
+	if err != nil {
+		log.Error("saving data", "path", "turtles.json")
+	}
 }
 
 func GetTurtle(w http.ResponseWriter, r *http.Request) {
