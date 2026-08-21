@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 
 	"charm.land/log/v2"
 	"github.com/gorilla/websocket"
@@ -38,6 +39,11 @@ func handleWs(w http.ResponseWriter, r *http.Request) {
 		}
 		log.Debug("received", "msg", string(msg))
 		err = conn.WriteMessage(websocket.TextMessage, []byte("ok"))
+		parts := strings.Fields(string(msg))
+		switch parts[0] {
+		case "data":
+			updateTurtle(parts[1])
+		}
 		if err != nil {
 			return
 		}
@@ -111,20 +117,17 @@ func GetTurtleList(w http.ResponseWriter, _ *http.Request) {
 	_, _ = fmt.Fprint(w, turtles.GetAll())
 }
 
-func updateTurtle(w http.ResponseWriter, r *http.Request) {
+func updateTurtle(s string) {
 	var req turtles.Turtle
-	err := json.NewDecoder(r.Body).Decode(&req) // decode json
+	err := json.Unmarshal([]byte(s), &req) // decode json
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	err = turtles.Update(req.ID, req) // update pointer with value from req
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	w.WriteHeader(http.StatusNoContent)
 }
 
 func sendCommand(w http.ResponseWriter, r *http.Request) {
@@ -144,7 +147,6 @@ func Start(port uint16) error {
 	http.HandleFunc("/registerTurtle", check(http.MethodPost, RegisterTurtle))
 	http.HandleFunc("/getTurtle", check(http.MethodGet, GetTurtle))
 	http.HandleFunc("/getAll", check(http.MethodGet, GetTurtleList))
-	http.HandleFunc("/updateTurtle", check(http.MethodPost, updateTurtle))
 	http.HandleFunc("/ws", check(http.MethodGet, handleWs))
 	http.HandleFunc("/sendCommand", check(http.MethodPost, sendCommand))
 	return http.ListenAndServe(fmt.Sprintf(":%d", port), nil)

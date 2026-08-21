@@ -39,7 +39,7 @@ local update = textutils.serialiseJSON({
 })
 
 modem.transmit(brokerChannel, id, register)
-modem.transmit(brokerChannel, id, update)
+modem.transmit(brokerChannel, id, "data " .. update)
 
 modem.open(id)
 modem.open(allChannel)
