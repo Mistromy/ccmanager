@@ -35,5 +35,5 @@ Known issues and things to add later. Kept short on purpose.
 - Queue uplink messages while disconnected instead of dropping them.
 - A server command that triggers a broker update, rather than only on boot.
 - Broker wakes the fleet on server reconnect.
-- Dispatch table instead of the `if words[1] == ...` chain, once there is more
-  than one command.
+- Dig, place, suck, drop, inspect. These take operands, so the single-word
+  command format stops being enough at that point.

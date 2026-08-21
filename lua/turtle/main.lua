@@ -1,6 +1,15 @@
 local brokerChannel = 0
 local allChannel = 65535
 
+local moves = {
+    forward = turtle.forward,
+    back = turtle.back,
+    up = turtle.up,
+    down = turtle.down,
+    left = turtle.turnLeft,
+    right = turtle.turnRight,
+}
+
 local id = os.getComputerID()
 local name = os.getComputerLabel() or ("turtle-" .. id)
 
@@ -46,16 +55,19 @@ while true do
             words[#words + 1] = w
         end
 
-        if words[1] == "forward" then
-            local ok, reason = turtle.forward()
+        local cmd = words[1]
+        local move = moves[cmd]
+
+        if move then
+            local ok, reason = move()
             if not ok then
-                modem.transmit(replyChannel, id, id .. " " .. reason)
+                modem.transmit(replyChannel, id, id .. " " .. cmd .. " " .. tostring(reason))
             end
-        elseif words[1] == "reboot" then
+        elseif cmd == "reboot" then
             modem.transmit(replyChannel, id, id .. " rebooting")
             os.reboot()
         else
-            print("unknown command: " .. tostring(words[1]))
+            print("unknown command: " .. tostring(cmd))
         end
     end
 end
