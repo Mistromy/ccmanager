@@ -1,7 +1,8 @@
 local host = "http://100.106.228.50:6767"
 local password = "myPassword"
-
-print("booting...\n")
+term.clear()
+term.setCursorPos(1,1)
+print("installing script...\n")
 local res, err = http.get({
     url = host .. "/source/turtle/main.lua",
     headers = { Authorization = password },
