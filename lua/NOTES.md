@@ -21,6 +21,12 @@ Known issues and things to add later. Kept short on purpose.
   correlation ID, no retry.
 - **The turtle blocks in its event loop.** It can do nothing else until this
   becomes a `parallel` call.
+- **A repeat makes the turtle deaf for its duration.** `turtle.forward()` has a
+  cooldown, so `forward 16` is several seconds during which no command is
+  processed — including `reboot`. That is the real cost of raising `maxRepeat`,
+  not the fuel.
+- **Out-of-range counts are clamped silently.** `forward 40` moves 16 and says
+  nothing about the difference.
 - **Startup scripts are installed by hand.** Neither script updates its own
   `startup.lua` from a disk any more; the broker updates itself from the server
   instead, and the turtle's bootstrap is small enough to rarely change.
@@ -35,5 +41,8 @@ Known issues and things to add later. Kept short on purpose.
 - Queue uplink messages while disconnected instead of dropping them.
 - A server command that triggers a broker update, rather than only on boot.
 - Broker wakes the fleet on server reconnect.
+- `face n|e|s|w` wrapping the rotations, once the turtle tracks its heading.
+- Chunkloader control, if the fleet should toggle it at runtime rather than
+  having it always on.
 - Dig, place, suck, drop, inspect. These take operands, so the single-word
   command format stops being enough at that point.

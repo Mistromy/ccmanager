@@ -1,5 +1,6 @@
 local brokerChannel = 0
 local allChannel = 65535
+local maxRepeat = 16
 
 local moves = {
     forward = turtle.forward,
@@ -59,9 +60,19 @@ while true do
         local move = moves[cmd]
 
         if move then
-            local ok, reason = move()
-            if not ok then
-                modem.transmit(replyChannel, id, id .. " " .. cmd .. " " .. tostring(reason))
+            local count = math.floor(tonumber(words[2]) or 1)
+            count = math.min(math.max(count, 1), maxRepeat)
+
+            for step = 1, count do
+                local ok, reason = move()
+                if not ok then
+                    -- how many completed, not just that it failed. the server
+                    -- tracks position by applying successful moves, so without
+                    -- the count it cannot know where the turtle stopped.
+                    modem.transmit(replyChannel, id,
+                        id .. " " .. cmd .. " " .. (step - 1) .. " " .. tostring(reason))
+                    break
+                end
             end
         elseif cmd == "reboot" then
             modem.transmit(replyChannel, id, id .. " rebooting")
