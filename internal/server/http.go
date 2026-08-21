@@ -44,7 +44,12 @@ func handleWs(w http.ResponseWriter, r *http.Request) {
 			updateTurtle(parts[1])
 		case "register":
 			RegisterTurtle(parts[1])
-
+		case "getAll":
+			tl := fmt.Sprintf("%v", turtles.GetAll())
+			err := conn.WriteMessage(websocket.TextMessage, []byte(tl))
+			if err != nil {
+				return
+			}
 		}
 		if err != nil {
 			return
