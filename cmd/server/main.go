@@ -9,6 +9,8 @@ import (
 	"github.com/mistromy/ccmanager/internal/turtles"
 )
 
+const turtleDataPath string = "turtles.json"
+
 func main() {
 	log.SetLevel(log.DebugLevel)
 	log.SetReportCaller(true)
@@ -25,7 +27,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	turtles.LoadData("turtles.json")
+	turtles.LoadData(turtleDataPath)
 	log.Info("Starting ComputerCraft Server.", "port", port)
 	go func() {
 		if err = server.Start(port); err != nil {
@@ -33,10 +35,11 @@ func main() {
 		}
 	}()
 	go server.TuiInput()
+	go turtles.PeriodicSave(turtleDataPath)
 	<-c
-	err = turtles.SaveData("turtles.json")
+	err = turtles.SaveData(turtleDataPath)
 	if err != nil {
-		log.Error("saving data", "path", "turtles.json")
+		log.Error("saving data", "path", turtleDataPath)
 	}
 	log.Info("Stopping ComputerCraft Server.", "port", port)
 }

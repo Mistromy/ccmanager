@@ -3,6 +3,7 @@ package turtles
 import (
 	"encoding/json"
 	"os"
+	"time"
 
 	"charm.land/log/v2"
 )
@@ -22,6 +23,14 @@ func SaveData(path string) error {
 		return err
 	}
 	return nil
+}
+
+func PeriodicSave(path string) {
+	time.Sleep(5 * time.Minute)
+	err := SaveData(path)
+	if err != nil {
+		log.Error("saving data", "path", path)
+	}
 }
 
 func LoadData(path string) {
