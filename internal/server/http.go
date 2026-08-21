@@ -2,7 +2,6 @@ package server
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -41,8 +40,11 @@ func handleWs(w http.ResponseWriter, r *http.Request) {
 		err = conn.WriteMessage(websocket.TextMessage, []byte("ok"))
 		parts := strings.Fields(string(msg))
 		switch parts[0] {
-		case "data":
+		case "update":
 			updateTurtle(parts[1])
+		case "register":
+			RegisterTurtle(parts[1])
+
 		}
 		if err != nil {
 			return
@@ -63,33 +65,19 @@ func RegisterPassword(password string) ([]byte, error) {
 	return hash, nil
 }
 
-func RegisterTurtle(w http.ResponseWriter, r *http.Request) {
+func RegisterTurtle(s string) {
 
-	type rr struct {
-		ID   uint16 `json:"ID"`
-		Name string `json:"Name"`
-	}
-	var req rr
-	err := json.NewDecoder(r.Body).Decode(&req)
+	var data turtles.Turtle
+	err := json.Unmarshal([]byte(s), &data)
 	if err != nil {
 		log.Debug("bad json", "error", err)
-		msg := fmt.Sprintf("error: %v", err)
-		http.Error(w, msg, http.StatusBadRequest)
 		return
 	} // handle malformatted json
 
-	err = turtles.Register(req.ID, req.Name)
+	err = turtles.Register(data.ID, data.Name)
 	if err != nil {
-		log.Debug("register failed", "error", err)
-		msg := fmt.Sprintf("error registering turtle %d, '%s'. %v", req.ID, req.Name, err)
-		if errors.Is(err, turtles.ErrAlreadyRegistered) {
-			http.Error(w, msg, http.StatusConflict)
-		} else {
-			http.Error(w, msg, http.StatusBadRequest)
-		}
-		return
+		log.Error("register failed", "error", err)
 	} // handle register error
-	w.WriteHeader(http.StatusNoContent)
 }
 
 func GetTurtle(w http.ResponseWriter, r *http.Request) {
@@ -118,13 +106,13 @@ func GetTurtleList(w http.ResponseWriter, _ *http.Request) {
 }
 
 func updateTurtle(s string) {
-	var req turtles.Turtle
-	err := json.Unmarshal([]byte(s), &req) // decode json
+	var data turtles.Turtle
+	err := json.Unmarshal([]byte(s), &data) // decode json
 	if err != nil {
 		return
 	}
 
-	err = turtles.Update(req.ID, req) // update pointer with value from req
+	err = turtles.Update(data.ID, data) // update pointer with value from data
 	if err != nil {
 		return
 	}
@@ -144,7 +132,6 @@ func sendCommand(w http.ResponseWriter, r *http.Request) {
 func Start(port uint16) error {
 	fs := http.StripPrefix("/source/", http.FileServer(http.Dir("../lua")))
 	http.HandleFunc("/source/", check(http.MethodGet, fs.ServeHTTP))
-	http.HandleFunc("/registerTurtle", check(http.MethodPost, RegisterTurtle))
 	http.HandleFunc("/getTurtle", check(http.MethodGet, GetTurtle))
 	http.HandleFunc("/getAll", check(http.MethodGet, GetTurtleList))
 	http.HandleFunc("/ws", check(http.MethodGet, handleWs))

@@ -38,8 +38,8 @@ local update = textutils.serialiseJSON({
     Fuel = turtle.getFuelLevel(),
 })
 
-modem.transmit(brokerChannel, id, register)
-modem.transmit(brokerChannel, id, "data " .. update)
+modem.transmit(brokerChannel, id, "register " .. register)
+modem.transmit(brokerChannel, id, "update " .. update)
 
 modem.open(id)
 modem.open(allChannel)

@@ -37,7 +37,7 @@ func Update(id uint16, t Turtle) error {
 		return ErrInvalidID
 	} // returns if turtle doesnt exist
 	turtles[id] = &t
-	log.Info("Updated Turtle", "data", t)
+	log.Debug("Updated Turtle", "data", t)
 	return nil
 }
 
