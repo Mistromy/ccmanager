@@ -1,11 +1,11 @@
 package server
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
-	"strings"
 
 	"charm.land/log/v2"
 	"github.com/gorilla/websocket"
@@ -23,7 +23,7 @@ func handleWs(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		log.Error("upgrade failed", "error", err)
 		return
-	}
+	} // upgrade error
 	brokerConn = conn
 	defer func() { brokerConn = nil }()
 	defer func(conn *websocket.Conn) {
@@ -35,15 +35,15 @@ func handleWs(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			log.Error("connection closed", "error", err)
 			return
-		}
+		} // close connection
 		log.Debug("received", "msg", string(msg))
-		err = conn.WriteMessage(websocket.TextMessage, []byte("ok"))
-		parts := strings.Fields(string(msg))
-		switch parts[0] {
+		//err = conn.WriteMessage(websocket.TextMessage, []byte("ok"))
+		i := bytes.IndexByte(msg, ' ')
+		switch string(msg[:i]) {
 		case "update":
-			updateTurtle(parts[1])
+			updateTurtle(msg[i+1:])
 		case "register":
-			RegisterTurtle(parts[1])
+			RegisterTurtle(msg[i+1:])
 		case "getAll":
 			tl := fmt.Sprintf("%v", turtles.GetAll())
 			err := conn.WriteMessage(websocket.TextMessage, []byte(tl))
@@ -52,7 +52,7 @@ func handleWs(w http.ResponseWriter, r *http.Request) {
 			}
 		case "scan":
 			//var id uint16 = 5
-			//turtles.ProcessScan(fmt.Sprintf(parts[1:]), id) // TODO make it send all parts after the value or whatever, or fix the thing before where it only looks at the first space.
+			//turtles.ProcessScan(fmt.Sprintf(msg[i+1:]), id) // TODO make it send all parts after the value or whatever, or fix the thing before where it only looks at the first space.
 		}
 		if err != nil {
 			return
@@ -73,10 +73,10 @@ func RegisterPassword(password string) ([]byte, error) {
 	return hash, nil
 }
 
-func RegisterTurtle(s string) {
+func RegisterTurtle(b []byte) {
 
 	var data turtles.Turtle
-	err := json.Unmarshal([]byte(s), &data)
+	err := json.Unmarshal(b, &data)
 	if err != nil {
 		log.Debug("bad json", "error", err)
 		return
@@ -118,9 +118,9 @@ func GetTurtleList(w http.ResponseWriter, _ *http.Request) {
 	_, _ = fmt.Fprint(w, turtles.GetAll())
 }
 
-func updateTurtle(s string) {
+func updateTurtle(b []byte) {
 	var data turtles.Turtle
-	err := json.Unmarshal([]byte(s), &data) // decode json
+	err := json.Unmarshal(b, &data) // decode json
 	if err != nil {
 		return
 	}
