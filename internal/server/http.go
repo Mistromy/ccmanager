@@ -51,8 +51,7 @@ func handleWs(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		case "scan":
-			//var id uint16 = 5
-			//turtles.ProcessScan(fmt.Sprintf(msg[i+1:]), id) // TODO make it send all parts after the value or whatever, or fix the thing before where it only looks at the first space.
+			parseScan(msg[i+1:])
 		}
 		if err != nil {
 			return
