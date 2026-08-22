@@ -32,6 +32,11 @@ func parse(s string) {
 			log.Info("list")
 		case "commands":
 		//	TODO add commands list command
+		case "update":
+			var s []string
+			s = append(s, "reboot")
+			turtleCommand(65533, s)
+			turtleCommand(0, s)
 		case "clear":
 			fmt.Print("\033[H\033[2J")
 		default:

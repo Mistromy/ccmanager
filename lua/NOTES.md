@@ -4,9 +4,16 @@ Known issues and things to add later. Kept short on purpose.
 
 ## Known issues
 
-- **Uplink other than pongs is still dropped while reconnecting.** `wait()` now
-  services pongs during backoff, but anything else a turtle transmits in that
-  window is discarded rather than queued.
+- **Uplink is dropped while the broker is disconnected.** The relay coroutine
+  is not running between connections, so anything a turtle transmits in that
+  window is discarded rather than queued. Pongs survive because the heartbeat
+  coroutine keeps its own state.
+- **`0 reboot` closes as 1006, and that is now accepted.** CC's `ws.close()`
+  does not complete a closing handshake, so no delay or close call helps. The
+  broker just reboots. Treat a 1006 as an ordinary disconnect server-side.
+- **Offline detection takes `staleAfter` plus up to one `heartbeat`.** At the
+  current 1500/0.5 that is 1.5-2s. Tighter values detect faster but a single
+  dropped modem message starts flickering a healthy turtle to down.
 - **Channel constants are duplicated.** `brokerChannel = 0` lives in both
   scripts and `allChannel = 65535` in the turtle. Nothing enforces agreement.
 - **A broadcast reaches turtles only.** The broker does not hear its own
