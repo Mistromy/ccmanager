@@ -30,6 +30,8 @@ func parse(s string) {
 			log.Info("getblock")
 		case "list":
 			log.Info("list")
+		case "commands":
+		//	TODO add commands list command
 		case "clear":
 			fmt.Print("\033[H\033[2J")
 		default:

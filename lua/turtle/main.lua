@@ -143,6 +143,16 @@ while true do
             modem.transmit(replyChannel, id, "update " .. state())
         elseif cmd == "getrot" then
             modem.transmit(replyChannel, id, "update " .. state())
+        elseif cmd == "gps" then
+            -- authoritative fix, to correct dead reckoning drift. rot is not
+            -- recoverable from a single locate, so it is left alone.
+            local nx, ny, nz = gps.locate()
+            if nx then
+                x, y, z = nx, ny, nz
+                modem.transmit(replyChannel, id, "update " .. state())
+            else
+                modem.transmit(replyChannel, id, id .. " gps 0 no fix")
+            end
         elseif cmd == "ping" then
             modem.transmit(replyChannel, id, "pong " .. id)
         elseif cmd == "refuel" then

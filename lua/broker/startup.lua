@@ -3,10 +3,18 @@ local password = "myPassword"
 local brokerChannel = 0
 local allChannel = 65533
 
-local volume = 3     -- CC:Tweaked playNote volume range is 0-3
-local growth = 1.5   -- backoff multiplier once the flat stages are done
+local volume = 3      -- CC:Tweaked playNote volume range is 0-3
+local heartbeat = 1   -- seconds between fleet pings
+local connectTimeout = 3 -- cap on a single websocket attempt
+local listCommand = "getAll" -- rename here if the server verb changes
+
+-- backoff: fast stage, flat stage, then growth. attempts 1-20 at 0.5s and
+-- 21-80 at 1s means about 70 seconds of near-instant retries before it starts
+-- stretching, so a server restart is picked up immediately.
+local fastUntil = 20
+local flatUntil = 80
+local growth = 1.3
 local maxDelay = 30
-local heartbeat = 5  -- seconds between fleet pings
 
 -- Self-update. Fetch this script from the server; if it differs and compiles,
 -- write it and run the new copy instead of continuing. The fresh copy repeats
@@ -56,9 +64,9 @@ modem.open(brokerChannel)
 local speaker = peripheral.find("speaker")
 local monitor = peripheral.find("monitor")
 
-local status = "connecting"
-local retryIn = 0
-local seen = {}      -- every turtle id that has ever answered a ping
+local status = "down" -- just up or down
+local phase = nil     -- what it is doing about it, when not ok
+local seen = {}      -- every turtle the server knows about, or that has pinged
 local alive = {}     -- answered during the round in progress
 local lastAlive = {} -- answered during the last completed round
 
@@ -68,13 +76,30 @@ local function draw()
     if not monitor then
         return
     end
-    monitor.clear()
-    monitor.setCursorPos(1, 1)
-    monitor.write("server: " .. status)
+    local colour = monitor.isColour and monitor.isColour()
 
-    if retryIn > 0 then
+    -- label stays white, only the value carries the state colour
+    local function line(row, label, value, good)
+        monitor.setCursorPos(1, row)
+        if colour then
+            monitor.setTextColour(colours.white)
+        end
+        monitor.write(label)
+        if colour then
+            monitor.setTextColour(good and colours.green or colours.red)
+        end
+        monitor.write(value)
+    end
+
+    monitor.clear()
+    line(1, "server: ", status, status == "ok")
+
+    if phase then
         monitor.setCursorPos(1, 2)
-        monitor.write("retry in " .. math.ceil(retryIn) .. "s")
+        if colour then
+            monitor.setTextColour(colours.white)
+        end
+        monitor.write(phase)
     end
 
     local ids = {}
@@ -84,8 +109,12 @@ local function draw()
     table.sort(ids)
 
     for i, tid in ipairs(ids) do
-        monitor.setCursorPos(1, i + 3)
-        monitor.write(tid .. ": " .. (lastAlive[tid] and "ok" or "down"))
+        local up = lastAlive[tid] or false
+        line(i + 3, tid .. ": ", up and "ok" or "down", up)
+    end
+
+    if colour then
+        monitor.setTextColour(colours.white)
     end
 end
 
@@ -102,27 +131,65 @@ local function chime(up)
     speaker.playNote("bell", volume, second)
 end
 
--- delay returns the backoff for a given attempt number.
--- 20 attempts at 0.5s, then 20 at 1s, then growing, capped at maxDelay.
+-- start a new liveness round and return who answered the previous one.
+local function pingRound()
+    lastAlive = alive
+    alive = {}
+    modem.transmit(allChannel, brokerChannel, "ping")
+    draw()
+
+    local ids = {}
+    for tid in pairs(lastAlive) do
+        ids[#ids + 1] = tid
+    end
+    table.sort(ids)
+    return ids
+end
+
+-- sleep, but keep servicing pongs. plain sleep() discards every event it is
+-- not waiting for, which is why the fleet went dark whenever the server did.
+local function wait(seconds)
+    local t = os.startTimer(seconds)
+    while true do
+        local event, a, _, _, message = os.pullEvent()
+        if event == "timer" and a == t then
+            return
+        elseif event == "modem_message" and type(message) == "string" then
+            local tid = message:match("^pong (%d+)$")
+            if tid then
+                tid = tonumber(tid)
+                seen[tid] = true
+                alive[tid] = true
+            end
+        end
+    end
+end
+
 local function delay(attempt)
-    if attempt <= 20 then
+    if attempt <= fastUntil then
         return 0.5
-    elseif attempt <= 40 then
+    elseif attempt <= flatUntil then
         return 1
     end
-    return math.min(growth ^ (attempt - 40), maxDelay)
+    return math.min(growth ^ (attempt - flatUntil), maxDelay)
 end
 
 local function connect()
     local attempt = 0
     while true do
-        status = "connecting"
-        retryIn = 0
+        phase = "connecting..."
         draw()
 
-        local ws, err = http.websocket("ws://" .. host .. "/ws", { Authorization = password })
+        -- bounded, or a failing attempt blocks for the config http timeout and
+        -- the backoff numbers stop meaning anything.
+        local ws, err = http.websocket({
+            url = "ws://" .. host .. "/ws",
+            headers = { Authorization = password },
+            timeout = connectTimeout,
+        })
         if ws then
             status = "ok"
+            phase = nil
             draw()
             return ws
         end
@@ -132,15 +199,16 @@ local function connect()
         local remaining = delay(attempt)
         print("connect failed (" .. tostring(err) .. "), retrying in " .. remaining .. "s")
 
-        -- sleep in steps so the monitor can count down
+        -- keep the heartbeat running while the server is gone, so the monitor
+        -- still shows which turtles are up
         while remaining > 0 do
-            retryIn = remaining
-            draw()
+            phase = "retrying in " .. math.ceil(remaining) .. "s"
+            pingRound()
             local step = math.min(remaining, 1)
-            sleep(step)
+            wait(step)
             remaining = remaining - step
         end
-        retryIn = 0
+        phase = nil
     end
 end
 
@@ -148,6 +216,11 @@ while true do
     print("connecting to server...")
     local ws = connect()
     ws.send("broker " .. os.getComputerID() .. " online")
+
+    -- ask for the registry immediately, and ping immediately, so the first
+    -- heartbeat round already has answers rather than showing everything down.
+    ws.send(listCommand)
+    modem.transmit(allChannel, brokerChannel, "ping")
     chime(true)
     print("connected, listening on channel " .. brokerChannel)
 
@@ -174,26 +247,16 @@ while true do
                 end
             end
         elseif event == "timer" and a == timer then
-            lastAlive = alive
-            alive = {}
-
-            local ids = {}
-            for tid in pairs(lastAlive) do
-                ids[#ids + 1] = tid
-            end
-            table.sort(ids)
-
+            local ids = pingRound()
             if not pcall(ws.send, "heartbeat " .. textutils.serialiseJSON({ Alive = ids })) then
                 connected = false
             end
-
-            modem.transmit(allChannel, brokerChannel, "ping")
-            draw()
             timer = os.startTimer(heartbeat)
         elseif event == "websocket_message" then
             -- a = url, b = message. first word is the target turtle id.
+            local text = tostring(b)
             local words = {}
-            for w in string.gmatch(tostring(b), "%S+") do
+            for w in string.gmatch(text, "%S+") do
                 words[#words + 1] = w
             end
 
@@ -203,25 +266,33 @@ while true do
             if id == brokerChannel then
                 if words[2] == "reboot" then
                     pcall(ws.send, brokerChannel .. " rebooting")
+                    pcall(ws.close)
+                    sleep(0.2) -- let the close frame flush before the reboot
                     os.reboot()
                 else
                     print("unknown command: " .. tostring(words[2]))
                 end
             elseif id then
                 modem.transmit(id, brokerChannel, table.concat(words, " ", 2))
+            elseif words[1] == listCommand or words[1] == "list" or text:match("^%s*%[") then
+                -- the turtle registry. digits are pulled out rather than
+                -- assuming a shape, so a go slice print and json both work.
+                for n in text:gmatch("%d+") do
+                    seen[tonumber(n)] = true
+                end
+                draw()
             else
-                print("server: " .. tostring(b))
+                print("server: " .. text)
             end
         elseif event == "websocket_closed" then
             connected = false
         end
     end
 
-    -- close before reconnecting. without this a send that failed on size
-    -- leaves the old socket open server-side and the next connect duplicates it.
     pcall(ws.close)
 
     status = "down"
+    phase = "connecting..."
     draw()
     chime(false)
     print("disconnected")

@@ -4,9 +4,9 @@ Known issues and things to add later. Kept short on purpose.
 
 ## Known issues
 
-- **Modem messages are dropped while the broker is reconnecting.** `sleep()`
-  consumes and discards events, so anything a turtle transmits during a backoff
-  delay is gone. Only harmless while the server ignores uplink data.
+- **Uplink other than pongs is still dropped while reconnecting.** `wait()` now
+  services pongs during backoff, but anything else a turtle transmits in that
+  window is discarded rather than queued.
 - **Channel constants are duplicated.** `brokerChannel = 0` lives in both
   scripts and `allChannel = 65535` in the turtle. Nothing enforces agreement.
 - **A broadcast reaches turtles only.** The broker does not hear its own
@@ -51,8 +51,13 @@ Known issues and things to add later. Kept short on purpose.
 
 - **Heartbeat stops while the broker is reconnecting.** The backoff sleeps, so
   no ping goes out and the monitor keeps showing the last completed round.
-- **The broker only learns a turtle exists when it answers a ping.** A turtle
-  that has never once responded is invisible rather than "down".
+- **`seen` only grows.** A turtle removed from the server's registry keeps
+  showing as "down" on the monitor until the broker reboots.
+- **The registry reply is recognised by shape, not by a verb.** The broker
+  accepts `getAll ...`, `list ...`, or anything starting with `[`. Give the
+  response a verb prefix server-side and this can drop to one exact match.
+- **Heartbeat at 1s is 1 pong per turtle per second through one broker.** Fine
+  now; at 100+ turtles this is the first thing to batch or slow down.
 - **`update` after a move sends a partial turtle.** Only `ID` and `Loc`. This
   needs the server to merge rather than replace, or `Name`, `Fuel` and
   `Storage` get zeroed.

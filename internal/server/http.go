@@ -37,6 +37,9 @@ func handleWs(w http.ResponseWriter, r *http.Request) {
 			return
 		} // close connection
 		i := bytes.IndexByte(msg, ' ')
+		if i < 0 {
+			i = len(msg)
+		}
 		if string(msg[:i]) != "heartbeat" {
 			log.Debug("received", "msg", string(msg))
 		} // log received messages
