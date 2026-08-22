@@ -17,6 +17,10 @@ func parse(s string) {
 		return
 	}
 	if id, err := strconv.ParseUint(parts[0], 10, 16); err == nil {
+		if brokerConn == nil {
+			log.Info("broker not connected")
+			return
+		}
 		turtleCommand(uint16(id), parts[1:])
 	} else {
 		switch parts[0] {
