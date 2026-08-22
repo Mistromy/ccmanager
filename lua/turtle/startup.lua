@@ -19,6 +19,7 @@ local res, err = http.get({
 })
 if not res then
     print("no source: " .. tostring(err))
+    print("shutting down in 5 seconds...")
     sleep(5)
     os.shutdown()
 end
@@ -29,8 +30,28 @@ res.close()
 local main, loadErr = load(source, "main.lua")
 if not main then
     print("bad source: " .. tostring(loadErr))
+    print("shutting down in 5 seconds...")
     sleep(5)
     os.shutdown()
 end
 
-main()
+-- main never returns on purpose, so any exit is abnormal. reboot rather than
+-- shut down: a rebooted turtle re-fetches main.lua, so pushing a fix to the
+-- server heals a crash loop on its own. a turtle that is on but not running
+-- cannot be reached at all.
+local ok, runErr = pcall(main)
+
+-- ctrl+t raises through pcall too. without this the turtle would reboot out of
+-- every attempt to break into it.
+if not ok and tostring(runErr):find("Terminated") then
+    return
+end
+
+if ok then
+    print("main exited")
+else
+    print("crashed: " .. tostring(runErr))
+end
+print("rebooting in 5 seconds...")
+sleep(5)
+os.reboot()

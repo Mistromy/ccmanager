@@ -138,6 +138,10 @@ while true do
         end
     end
 
+    -- close before reconnecting. without this a send that failed on size
+    -- leaves the old socket open server-side and the next connect duplicates it.
+    pcall(ws.close)
+
     chime(false)
     print("disconnected")
 end

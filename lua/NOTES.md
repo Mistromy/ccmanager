@@ -34,6 +34,21 @@ Known issues and things to add later. Kept short on purpose.
   errors on an older build, drop the field and the server config's `http.timeout`
   applies instead.
 
+- **Websocket messages are capped at `http.max_websocket_message`**, default
+  131072 bytes. Measured: r3 = 126169 through, r4 = 269356 rejected. The palette
+  format puts r8 well under; r16 will need the config raised.
+- **`rot` is -1 until the turtle has moved forward or back once.** Turns are
+  tracked from there. A scan taken before that first move cannot be rotated
+  into world space.
+- **An empty scan serialises `palette`/`blocks` as `{}`, not `[]`.**
+  `textutils.serialiseJSON` cannot tell an empty array from an empty object.
+- **A crash reboots the turtle after 5s.** Self-healing, since the reboot
+  re-fetches `main.lua` — but a bug that crashes before the modem opens gives a
+  turtle that reboots forever and never accepts a command. The escape is ctrl+t
+  or pulling the disk.
+- **The broker has no equivalent crash handler.** It runs `main.lua` through
+  `shell.run`, so a runtime error leaves it sitting at a prompt.
+
 ## Later
 
 - Envelope on the uplink so the server can tell a register from an update from

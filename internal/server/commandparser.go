@@ -25,11 +25,13 @@ func parse(s string) {
 	} else {
 		switch parts[0] {
 		case "-1":
-			turtleCommand(65534, parts[1:])
+			turtleCommand(65533, parts[1:])
 		case "getblock":
 			log.Info("getblock")
 		case "list":
 			log.Info("list")
+		case "clear":
+			fmt.Print("\033[H\033[2J")
 		default:
 			log.Info("unknown command: %s", parts[0])
 		}
