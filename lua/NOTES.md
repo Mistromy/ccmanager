@@ -60,9 +60,8 @@ Known issues and things to add later. Kept short on purpose.
   no ping goes out and the monitor keeps showing the last completed round.
 - **`seen` only grows.** A turtle removed from the server's registry keeps
   showing as "down" on the monitor until the broker reboots.
-- **The registry reply is recognised by shape, not by a verb.** The broker
-  accepts `getAll ...`, `list ...`, or anything starting with `[`. Give the
-  response a verb prefix server-side and this can drop to one exact match.
+- **The registry reply must be prefixed `list`.** The broker matches the verb,
+  like every other message. A bare `[5 32 6]` is ignored.
 - **Heartbeat at 1s is 1 pong per turtle per second through one broker.** Fine
   now; at 100+ turtles this is the first thing to batch or slow down.
 - **`update` after a move sends a partial turtle.** Only `ID` and `Loc`. This

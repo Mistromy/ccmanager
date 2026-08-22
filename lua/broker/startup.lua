@@ -3,8 +3,12 @@ local password = "myPassword"
 local brokerChannel = 0
 local allChannel = 65533
 
-local heartbeat = 0.5    -- seconds between fleet pings
-local staleAfter = 500  -- ms without a pong before a turtle reads as down 1500 to avoid blips
+local heartbeat = 0.5 -- seconds between fleet pings
+-- ms without a pong before a turtle reads as down. must sit between one and
+-- two heartbeats: the periodic draw happens right after a ping, when the last
+-- pong is already a full heartbeat old, so anything at or below heartbeat*1000
+-- flickers every cycle. below 2x it still catches a single dropped ping.
+local staleAfter = 500
 local connectTimeout = 3 -- cap on a single websocket attempt
 local volume = 3         -- CC:Tweaked playNote volume range is 0-3
 
@@ -77,14 +81,15 @@ local function draw()
     end
     local colour = monitor.isColour and monitor.isColour()
 
-    -- label stays white, only the value carries the state colour
+    -- label stays white, only the value carries the state colour.
+    -- good == nil means "no verdict yet", drawn white.
     local function line(row, label, value, good)
         monitor.setCursorPos(1, row)
         if colour then
             monitor.setTextColour(colours.white)
         end
         monitor.write(label)
-        if colour then
+        if colour and good ~= nil then
             monitor.setTextColour(good and colours.green or colours.red)
         end
         monitor.write(value)
@@ -108,8 +113,13 @@ local function draw()
     table.sort(ids)
 
     for i, tid in ipairs(ids) do
-        local up = isUp(tid)
-        line(i + 3, tid .. ": ", up and "ok" or "down", up)
+        if lastSeen[tid] == nil then
+            -- in the registry but never yet answered a ping
+            line(i + 3, tid .. ": ", "...", nil)
+        else
+            local up = isUp(tid)
+            line(i + 3, tid .. ": ", up and "ok" or "down", up)
+        end
     end
 
     if colour then
@@ -203,33 +213,31 @@ local function relay()
             end
         elseif event == "websocket_message" then
             local text = tostring(e[3])
+            local words = {}
+            for w in string.gmatch(text, "%S+") do
+                words[#words + 1] = w
+            end
 
-            if text:match("^%s*%[") then
-                -- the turtle registry, as a list of ids
+            -- a modem never hears its own transmission, so anything addressed
+            -- to the broker is handled here rather than sent.
+            local id = tonumber(words[1])
+            if id == brokerChannel then
+                if words[2] == "reboot" then
+                    os.reboot()
+                else
+                    print("unknown command: " .. tostring(words[2]))
+                end
+            elseif id then
+                modem.transmit(id, brokerChannel, table.concat(words, " ", 2))
+            elseif words[1] == "list" then
+                -- the turtle registry. digits are pulled out of the payload so
+                -- "[5 32 6]" and "[5,32,6]" both work.
                 for n in text:gmatch("%d+") do
                     known[tonumber(n)] = true
                 end
                 draw()
             else
-                local words = {}
-                for w in string.gmatch(text, "%S+") do
-                    words[#words + 1] = w
-                end
-
-                -- a modem never hears its own transmission, so anything
-                -- addressed to the broker is handled here rather than sent.
-                local id = tonumber(words[1])
-                if id == brokerChannel then
-                    if words[2] == "reboot" then
-                        os.reboot()
-                    else
-                        print("unknown command: " .. tostring(words[2]))
-                    end
-                elseif id then
-                    modem.transmit(id, brokerChannel, table.concat(words, " ", 2))
-                else
-                    print("server: " .. text)
-                end
+                print("server: " .. text)
             end
         end
     end
@@ -238,10 +246,14 @@ end
 local function connectionLoop()
     while true do
         ws = connect()
-        ws.send("broker " .. os.getComputerID() .. " online")
-        ws.send("getAll")
+
+        -- chime first. it sleeps, and sleep discards events, so anything sent
+        -- before it would have its reply thrown away before relay() starts.
         chime(true)
         print("connected, listening on channel " .. brokerChannel)
+
+        ws.send("broker " .. os.getComputerID() .. " online")
+        ws.send("getAll")
 
         relay()
 
