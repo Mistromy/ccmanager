@@ -1,6 +1,7 @@
 local brokerChannel = 0
-local allChannel = 65534
+local allChannel = 65533 -- 65534 is GPS, 65535 is rednet broadcast. both are CC's.
 local maxRepeat = 16
+local maxRadius = 16
 
 local moves = {
     forward = turtle.forward,
@@ -19,6 +20,8 @@ if not modem then
     print("no modem")
     return
 end
+
+local scanner = peripheral.find("universal_scanner")
 
 local x, y, z = gps.locate()
 if not x then
@@ -73,6 +76,32 @@ while true do
                         id .. " " .. cmd .. " " .. (step - 1) .. " " .. tostring(reason))
                     break
                 end
+            end
+        elseif cmd == "scan" then
+            if not scanner then
+                modem.transmit(replyChannel, id, id .. " scan 0 no scanner")
+            else
+                local radius = math.floor(tonumber(words[2]) or 8)
+                radius = math.min(math.max(radius, 1), maxRadius)
+
+                -- gps at scan time, not boot time, so the position and the
+                -- blocks describe the same instant.
+                local sx, sy, sz = gps.locate()
+                local started = os.epoch("utc")
+                local blocks = scanner.scan("block", radius)
+
+                local payload = textutils.serialiseJSON({
+                    ID = id,
+                    Radius = radius,
+                    Loc = { X = sx, Y = sy, Z = sz },
+                    Blocks = blocks,
+                })
+
+                -- measure before designing a format, per DESIGN 9.1
+                print(("scan r%d: %d blocks, %d bytes, %dms")
+                    :format(radius, #blocks, #payload, os.epoch("utc") - started))
+
+                modem.transmit(replyChannel, id, "scan " .. payload)
             end
         elseif cmd == "reboot" then
             modem.transmit(replyChannel, id, id .. " rebooting")
