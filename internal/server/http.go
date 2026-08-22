@@ -36,9 +36,11 @@ func handleWs(w http.ResponseWriter, r *http.Request) {
 			log.Error("connection closed", "error", err)
 			return
 		} // close connection
-		log.Debug("received", "msg", string(msg))
-		//err = conn.WriteMessage(websocket.TextMessage, []byte("ok"))
 		i := bytes.IndexByte(msg, ' ')
+		if string(msg[:i]) != "heartbeat" {
+			log.Debug("received", "msg", string(msg))
+		} // log received messages
+		//err = conn.WriteMessage(websocket.TextMessage, []byte("ok"))
 		switch string(msg[:i]) {
 		case "update":
 			updateTurtle(msg[i+1:])

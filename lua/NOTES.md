@@ -49,6 +49,14 @@ Known issues and things to add later. Kept short on purpose.
 - **The broker has no equivalent crash handler.** It runs `main.lua` through
   `shell.run`, so a runtime error leaves it sitting at a prompt.
 
+- **Heartbeat stops while the broker is reconnecting.** The backoff sleeps, so
+  no ping goes out and the monitor keeps showing the last completed round.
+- **The broker only learns a turtle exists when it answers a ping.** A turtle
+  that has never once responded is invisible rather than "down".
+- **`update` after a move sends a partial turtle.** Only `ID` and `Loc`. This
+  needs the server to merge rather than replace, or `Name`, `Fuel` and
+  `Storage` get zeroed.
+
 ## Later
 
 - Envelope on the uplink so the server can tell a register from an update from

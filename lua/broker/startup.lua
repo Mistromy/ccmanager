@@ -1,10 +1,12 @@
 local host = "100.106.228.50:6767"
 local password = "myPassword"
 local brokerChannel = 0
+local allChannel = 65533
 
-local volume = 3   -- CC:Tweaked playNote volume range is 0-3
-local growth = 1.5 -- backoff multiplier once the flat stages are done
+local volume = 3     -- CC:Tweaked playNote volume range is 0-3
+local growth = 1.5   -- backoff multiplier once the flat stages are done
 local maxDelay = 30
+local heartbeat = 5  -- seconds between fleet pings
 
 -- Self-update. Fetch this script from the server; if it differs and compiles,
 -- write it and run the new copy instead of continuing. The fresh copy repeats
@@ -16,7 +18,7 @@ local res = http.get({
     timeout = 5,
 })
 term.clear()
-term.setCursorPos(1,1)
+term.setCursorPos(1, 1)
 print("checking if up to date... ")
 if res then
     local source = res.readAll()
@@ -36,7 +38,7 @@ if res then
             f.write(source)
             f.close()
             term.clear()
-            term.setCursorPos(1,1)
+            term.setCursorPos(1, 1)
             print("updated, restarting...")
             return new()
         end
@@ -52,6 +54,40 @@ end
 modem.open(brokerChannel)
 
 local speaker = peripheral.find("speaker")
+local monitor = peripheral.find("monitor")
+
+local status = "connecting"
+local retryIn = 0
+local seen = {}      -- every turtle id that has ever answered a ping
+local alive = {}     -- answered during the round in progress
+local lastAlive = {} -- answered during the last completed round
+
+-- the monitor is a separate surface from the terminal, so drawing here never
+-- fights with the log. with no monitor attached this does nothing at all.
+local function draw()
+    if not monitor then
+        return
+    end
+    monitor.clear()
+    monitor.setCursorPos(1, 1)
+    monitor.write("server: " .. status)
+
+    if retryIn > 0 then
+        monitor.setCursorPos(1, 2)
+        monitor.write("retry in " .. math.ceil(retryIn) .. "s")
+    end
+
+    local ids = {}
+    for tid in pairs(seen) do
+        ids[#ids + 1] = tid
+    end
+    table.sort(ids)
+
+    for i, tid in ipairs(ids) do
+        monitor.setCursorPos(1, i + 3)
+        monitor.write(tid .. ": " .. (lastAlive[tid] and "ok" or "down"))
+    end
+end
 
 local function chime(up)
     if not speaker then
@@ -80,14 +116,31 @@ end
 local function connect()
     local attempt = 0
     while true do
+        status = "connecting"
+        retryIn = 0
+        draw()
+
         local ws, err = http.websocket("ws://" .. host .. "/ws", { Authorization = password })
         if ws then
+            status = "ok"
+            draw()
             return ws
         end
+
         attempt = attempt + 1
-        local d = delay(attempt)
-        print("connect failed (" .. tostring(err) .. "), retrying in " .. d .. "s")
-        sleep(d)
+        status = "down"
+        local remaining = delay(attempt)
+        print("connect failed (" .. tostring(err) .. "), retrying in " .. remaining .. "s")
+
+        -- sleep in steps so the monitor can count down
+        while remaining > 0 do
+            retryIn = remaining
+            draw()
+            local step = math.min(remaining, 1)
+            sleep(step)
+            remaining = remaining - step
+        end
+        retryIn = 0
     end
 end
 
@@ -98,7 +151,9 @@ while true do
     chime(true)
     print("connected, listening on channel " .. brokerChannel)
 
+    local timer = os.startTimer(heartbeat)
     local connected = true
+
     while connected do
         local event, a, b, c, message = os.pullEvent()
 
@@ -107,10 +162,34 @@ while true do
             -- non-strings are not ours; forwarding one would error and be
             -- misread as a dropped socket.
             if type(message) == "string" then
-                if not pcall(ws.send, message) then
+                local tid = message:match("^pong (%d+)$")
+                if tid then
+                    -- liveness is the broker's own business; the server gets
+                    -- one aggregated report per round instead of n messages.
+                    tid = tonumber(tid)
+                    seen[tid] = true
+                    alive[tid] = true
+                elseif not pcall(ws.send, message) then
                     connected = false
                 end
             end
+        elseif event == "timer" and a == timer then
+            lastAlive = alive
+            alive = {}
+
+            local ids = {}
+            for tid in pairs(lastAlive) do
+                ids[#ids + 1] = tid
+            end
+            table.sort(ids)
+
+            if not pcall(ws.send, "heartbeat " .. textutils.serialiseJSON({ Alive = ids })) then
+                connected = false
+            end
+
+            modem.transmit(allChannel, brokerChannel, "ping")
+            draw()
+            timer = os.startTimer(heartbeat)
         elseif event == "websocket_message" then
             -- a = url, b = message. first word is the target turtle id.
             local words = {}
@@ -142,6 +221,8 @@ while true do
     -- leaves the old socket open server-side and the next connect duplicates it.
     pcall(ws.close)
 
+    status = "down"
+    draw()
     chime(false)
     print("disconnected")
 end

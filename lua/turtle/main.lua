@@ -14,6 +14,14 @@ local moves = {
 
 local turns = { left = -1, right = 1 }
 
+-- unit step per facing. minecraft: north is -z, east is +x.
+local heading = {
+    [0] = { x = 0, z = -1 },
+    [1] = { x = 1, z = 0 },
+    [2] = { x = 0, z = 1 },
+    [3] = { x = -1, z = 0 },
+}
+
 local id = os.getComputerID()
 local name = os.getComputerLabel() or ("turtle-" .. id)
 local rot = -1 -- unknown until a forward/back resolves it
@@ -32,7 +40,7 @@ if not x then
     return
 end
 
--- facing derived from a position delta. minecraft: north is -z, east is +x.
+-- facing derived from a position delta.
 local function facingFrom(dx, dz, reversed)
     if reversed then
         dx, dz = -dx, -dz
@@ -42,6 +50,13 @@ local function facingFrom(dx, dz, reversed)
     if dz > 0 then return 2 end
     if dx < 0 then return 3 end
     return -1
+end
+
+local function state()
+    return textutils.serialiseJSON({
+        ID = id,
+        Loc = { X = x, Y = y, Z = z, Rot = rot },
+    })
 end
 
 local register = textutils.serialiseJSON({ ID = id, Name = name })
@@ -81,9 +96,10 @@ while true do
             count = math.min(math.max(count, 1), maxRepeat)
 
             -- two-position facing fix: only on the first xz move, and only
-            -- while rot is unknown. after that, turns keep it up to date.
+            -- while rot is unknown. after that, turns keep it up to date and
+            -- position is dead reckoned.
             local fixing = rot < 0 and (cmd == "forward" or cmd == "back")
-            local px, _, pz
+            local px, pz
             if fixing then
                 px, _, pz = gps.locate()
                 fixing = px ~= nil
@@ -100,36 +116,52 @@ while true do
                     break
                 end
 
-                if turns[cmd] and rot >= 0 then
-                    rot = (rot + turns[cmd]) % 4
-                end
-
-                if fixing then
-                    local nx, _, nz = gps.locate()
+                if turns[cmd] then
+                    if rot >= 0 then
+                        rot = (rot + turns[cmd]) % 4
+                    end
+                elseif cmd == "up" then
+                    y = y + 1
+                elseif cmd == "down" then
+                    y = y - 1
+                elseif fixing then
+                    -- the fix re-establishes position and facing together
+                    local nx, ny, nz = gps.locate()
                     if nx then
                         rot = facingFrom(nx - px, nz - pz, cmd == "back")
-                        print("facing " .. rot)
+                        x, y, z = nx, ny, nz
                     end
                     fixing = false
+                elseif rot >= 0 then
+                    local h = heading[rot]
+                    local sign = (cmd == "back") and -1 or 1
+                    x = x + h.x * sign
+                    z = z + h.z * sign
                 end
             end
+
+            modem.transmit(replyChannel, id, "update " .. state())
+        elseif cmd == "getrot" then
+            modem.transmit(replyChannel, id, "update " .. state())
+        elseif cmd == "ping" then
+            modem.transmit(replyChannel, id, "pong " .. id)
+        elseif cmd == "refuel" then
+            local n = math.floor(tonumber(words[2]) or 64)
+            local ok, why = turtle.refuel(n)
+            modem.transmit(replyChannel, id, "refuel " .. textutils.serialiseJSON({
+                ID = id,
+                OK = ok,
+                Fuel = turtle.getFuelLevel(),
+                Reason = (not ok) and tostring(why) or nil,
+            }))
         elseif cmd == "scan" then
             local radius = math.floor(tonumber(words[2]) or 8)
             radius = math.min(math.max(radius, 1), maxRadius)
-
-            -- gps at scan time, not boot time, so the position and the blocks
-            -- describe the same instant.
-            local sx, sy, sz
-            if scanner then
-                sx, sy, sz = gps.locate()
-            end
 
             local started = os.epoch("utc")
             local raw, why
             if not scanner then
                 why = "no scanner"
-            elseif not sx then
-                why = "no gps fix"
             else
                 raw, why = scanner.scan("block", radius)
             end
@@ -154,7 +186,7 @@ while true do
                 local payload = textutils.serialiseJSON({
                     id = id,
                     radius = radius,
-                    pos = { sx, sy, sz },
+                    pos = { x, y, z },
                     rot = rot,
                     palette = palette,
                     blocks = blocks,
