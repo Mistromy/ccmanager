@@ -21,7 +21,7 @@ func parse(s string) {
 	} else {
 		switch parts[0] {
 		case "-1":
-			turtleCommand(65535, parts[1:])
+			turtleCommand(65534, parts[1:])
 		case "getblock":
 			log.Info("getblock")
 		case "list":

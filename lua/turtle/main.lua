@@ -1,5 +1,5 @@
 local brokerChannel = 0
-local allChannel = 65535
+local allChannel = 65534
 local maxRepeat = 16
 
 local moves = {
