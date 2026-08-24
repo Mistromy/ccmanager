@@ -198,16 +198,10 @@ local function relay()
         if event == "websocket_closed" then
             return
         elseif event == "modem_message" then
+            -- pongs belong to pongLoop; everything else goes upstream
             local message = e[5]
-            if type(message) == "string" then
-                local tid = tonumber(message:match("^pong (%d+)$"))
-                if tid then
-                    -- liveness is the broker's own business; the server gets
-                    -- one aggregated list per round instead of n messages.
-                    known[tid] = true
-                    lastSeen[tid] = os.epoch("utc")
-                    draw()
-                elseif not pcall(ws.send, message) then
+            if type(message) == "string" and not message:match("^pong %d+$") then
+                if not pcall(ws.send, message) then
                     return
                 end
             end
@@ -266,9 +260,9 @@ local function connectionLoop()
     end
 end
 
--- independent of the connection, so turtle status stays accurate while the
--- server is down. sleep() here does not block the other coroutine.
-local function heartbeatLoop()
+-- ping and pong are separate coroutines and neither touches the socket state,
+-- so turtle liveness stays accurate no matter what the server link is doing.
+local function pingLoop()
     while true do
         modem.transmit(allChannel, brokerChannel, "ping")
 
@@ -288,4 +282,18 @@ local function heartbeatLoop()
     end
 end
 
-parallel.waitForAny(connectionLoop, heartbeatLoop)
+local function pongLoop()
+    while true do
+        local _, _, _, _, message = os.pullEvent("modem_message")
+        if type(message) == "string" then
+            local tid = tonumber(message:match("^pong (%d+)$"))
+            if tid then
+                known[tid] = true
+                lastSeen[tid] = os.epoch("utc")
+                draw()
+            end
+        end
+    end
+end
+
+parallel.waitForAny(connectionLoop, pingLoop, pongLoop)

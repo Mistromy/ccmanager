@@ -78,6 +78,18 @@ modem.open(id)
 modem.open(allChannel)
 print("listening on channel " .. id)
 
+-- ping lives on its own coroutine so it still answers while a command is
+-- running. turtle actions yield internally, so parallel gets a slot mid-move.
+local function pingLoop()
+    while true do
+        local _, _, _, replyChannel, message = os.pullEvent("modem_message")
+        if message == "ping" then
+            modem.transmit(replyChannel, id, "pong " .. id)
+        end
+    end
+end
+
+local function commandLoop()
 while true do
     local _, _, _, replyChannel, message = os.pullEvent("modem_message")
 
@@ -108,6 +120,11 @@ while true do
             for step = 1, count do
                 local ok, reason = move()
                 if not ok then
+                    -- an empty tank reports as obstruction, so say what it
+                    -- actually is. turns cost no fuel and cannot hit this.
+                    if turtle.getFuelLevel() == 0 then
+                        reason = "out of fuel"
+                    end
                     -- how many completed, not just that it failed. the server
                     -- tracks position by applying successful moves, so without
                     -- the count it cannot know where the turtle stopped.
@@ -154,7 +171,7 @@ while true do
                 modem.transmit(replyChannel, id, id .. " gps 0 no fix")
             end
         elseif cmd == "ping" then
-            modem.transmit(replyChannel, id, "pong " .. id)
+            -- answered by pingLoop; ignored here so it is not "unknown"
         elseif cmd == "refuel" then
             local n = math.floor(tonumber(words[2]) or 64)
             local ok, why = turtle.refuel(n)
@@ -216,3 +233,6 @@ while true do
         end
     end
 end
+end
+
+parallel.waitForAny(commandLoop, pingLoop)
