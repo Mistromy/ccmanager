@@ -33,3 +33,17 @@ const (
 	South
 	West
 )
+
+func (r Rot) String() string {
+	switch r {
+	case North:
+		return "North"
+	case East:
+		return "East"
+	case South:
+		return "South"
+	case West:
+		return "West"
+	}
+	return "invalid"
+}

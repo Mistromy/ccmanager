@@ -9,6 +9,7 @@ import (
 
 	"charm.land/log/v2"
 	"github.com/gorilla/websocket"
+	"github.com/mistromy/ccmanager/internal/turtles"
 )
 
 func parse(s string) {
@@ -29,7 +30,7 @@ func parse(s string) {
 		case "getblock":
 			log.Info("getblock")
 		case "list":
-			log.Info("list")
+			log.Info("list", turtles.GetAll())
 		case "commands":
 		//	TODO add commands list command
 		case "update":

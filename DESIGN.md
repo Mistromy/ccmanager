@@ -914,7 +914,7 @@ unrelated map contents.
 | Query string | `r.URL.Query().Get("id")`               | small simple values            |
 | Path         | `r.PathValue("id")` (Go 1.22+, own mux) | resource identity              |
 | Headers      | `r.Header.Get(...)`                     | credentials, protocol metadata |
-| Body         | `json.NewDecoder(r.Body).Decode(&data)`  | anything structured            |
+| Body         | `json.NewDecoder(r.Body).Decode(&data)` | anything structured            |
 
 **Never put credentials in a URL** — logged by every proxy and server in the
 path, in browser history, in the Referer header. Not a GET-specific rule; a URL
