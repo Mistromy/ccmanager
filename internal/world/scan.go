@@ -7,6 +7,7 @@ import (
 
 var (
 	worldPalette []string
+	worldMap     = map[utils.Vector32]uint16{}
 )
 
 type ScanMsg struct {
@@ -23,30 +24,37 @@ func Scan(msg ScanMsg) {
 	for _, b := range msg.Blocks {
 		coords, idMap := convert(b, msg.Pos, msg.Rot, paletteDict)
 		// TODO calculateHashMap and in chunk coords and then write with Morton lut
-		// TODO setBlock()
+		setBlock(idMap, coords)
 		log.Debug("processed scan", "coords", coords, "idMap", idMap)
 	}
 	for i, block := range worldPalette {
 		log.Debug("added block:", "index", i, "block", block)
 	}
+	log.Info("Scan successful")
 }
 
+// convert returns final processed block ready for appending to the world
 func convert(b [4]int8, p [3]int32, r int8, d []uint16) ([3]int32, uint16) {
 	return transform(b, p, r), d[b[3]]
 }
 
 func setBlock(blockType uint16, pos [3]int32) {
+	vectorCoords := utils.Vector32{X: pos[0], Y: pos[1], Z: pos[2]}
+	worldMap[vectorCoords] = blockType
 }
 
+// transform returns the world coordinate of a block based on scan position and rotation
 func transform(b [4]int8, t [3]int32, r int8) [3]int32 {
 	return translate(rotate(b, r), t)
 }
 
+// translate moves a block in the world by a given amount
 func translate(b [3]int8, t [3]int32) [3]int32 {
 	a := [3]int32{int32(b[0]), int32(b[1]), int32(b[2])}
 	return utils.Int32VectorAdd(a, t)
 }
 
+// rotate rotates blocks in the scan in 90 degree increments based on the turtles rotation
 func rotate(b [4]int8, rotation int8) [3]int8 {
 	switch rotation {
 	case 0:

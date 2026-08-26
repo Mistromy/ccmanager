@@ -10,6 +10,8 @@ import (
 	"charm.land/log/v2"
 	"github.com/gorilla/websocket"
 	"github.com/mistromy/ccmanager/internal/turtles"
+	"github.com/mistromy/ccmanager/internal/utils"
+	"github.com/mistromy/ccmanager/internal/world"
 )
 
 func parse(s string) {
@@ -28,7 +30,25 @@ func parse(s string) {
 		case "-1":
 			turtleCommand(65533, parts[1:])
 		case "getblock":
-			log.Info("getblock")
+			if len(parts) < 4 {
+				log.Error("Not enough arguments")
+				return
+			}
+			if len(parts) > 4 {
+				log.Error("Too many arguments")
+				return
+			}
+			coords := utils.Vector32{
+				X: utils.ToInteger(parts[1]),
+				Y: utils.ToInteger(parts[2]),
+				Z: utils.ToInteger(parts[3]),
+			}
+			block, err := world.GetBlock(coords)
+			if err != nil {
+				log.Error(err)
+				return
+			}
+			log.Info(block)
 		case "list":
 			log.Info("list", turtles.GetAll())
 		case "commands":
