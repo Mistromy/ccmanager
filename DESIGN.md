@@ -26,6 +26,7 @@ re-litigated from scratch, not because any of it is built.
 13. [Go conventions and libraries](#13-go-conventions-and-libraries)
 14. [Rejected / deferred](#14-rejected--deferred)
 15. [References](#15-references)
+16. [Notes](#16-notes)
 
 ---
 
@@ -1351,3 +1352,11 @@ planning, weighted A*, bounded suboptimal search, frontier-based exploration,
 next-best-view, MAPF, LRU eviction, greedy meshing, HPACK, string interning,
 idempotency, sentinel errors, functional core / imperative shell, dependency
 inversion, BOLA, SSRF.
+
+---
+
+## 16. Notes
+- dynamic lights mod causes a light block to be placed on top of the
+player which shows up in scans and may interfere with pathfinding, 
+therefore it, and other such blocks must be filtered out before
+appending to the world
