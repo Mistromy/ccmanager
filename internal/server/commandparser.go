@@ -26,22 +26,23 @@ func parse(s string) {
 		}
 		turtleCommand(uint16(id), parts[1:])
 	} else {
-		switch parts[0] {
+		command, args := parts[0], parts[1:]
+		switch command {
 		case "-1":
-			turtleCommand(65533, parts[1:])
+			turtleCommand(65533, args)
 		case "getblock":
-			if len(parts) < 4 {
+			if len(args) < 3 {
 				log.Error("Not enough arguments")
 				return
 			}
-			if len(parts) > 4 {
+			if len(args) > 3 {
 				log.Error("Too many arguments")
 				return
 			}
 			coords := utils.Vector32{
-				X: utils.ToInteger(parts[1]),
-				Y: utils.ToInteger(parts[2]),
-				Z: utils.ToInteger(parts[3]),
+				X: utils.ToInteger(args[0]),
+				Y: utils.ToInteger(args[1]),
+				Z: utils.ToInteger(args[2]),
 			}
 			block, err := world.GetBlock(coords)
 			if err != nil {
@@ -61,7 +62,7 @@ func parse(s string) {
 		case "clear":
 			fmt.Print("\033[H\033[2J")
 		default:
-			log.Info("unknown command: %s", parts[0])
+			log.Info("unknown command: %s", command)
 		}
 	}
 }

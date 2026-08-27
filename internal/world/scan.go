@@ -8,6 +8,7 @@ import (
 var (
 	worldPalette []string
 	worldMap     = map[utils.Vector32]uint16{}
+	chunks       = map[uint64]map[utils.UVector8]uint16{}
 )
 
 type ScanMsg struct {
@@ -40,7 +41,29 @@ func convert(b [4]int8, p [3]int32, r int8, d []uint16) ([3]int32, uint16) {
 
 func setBlock(blockType uint16, pos [3]int32) {
 	vectorCoords := utils.Vector32{X: pos[0], Y: pos[1], Z: pos[2]}
-	worldMap[vectorCoords] = blockType
+	key := getKey(vectorCoords)
+	inChunkPos := utils.UVector8{
+		X: uint8(vectorCoords.X & 15),
+		Y: uint8(vectorCoords.Y & 15),
+		Z: uint8(vectorCoords.Z & 15),
+	}
+	chunk, ok := chunks[key]
+	if !ok {
+		chunk = map[utils.UVector8]uint16{}
+		chunks[key] = chunk
+	}
+	chunk[inChunkPos] = blockType
+
+	//worldMap[vectorCoords] = blockType
+}
+
+// getKey takes world coordinates and returns the key for the chunk containing that coordinate.
+func getKey(pos utils.Vector32) uint64 {
+	var x, y, z uint64
+	x = uint64(uint32(pos.X>>4)) & 0x3FFFFF
+	y = uint64(uint32(pos.Y>>4)) & 0xFFF
+	z = uint64(uint32(pos.Z>>4)) & 0x3FFFFF
+	return x<<34 | y<<22 | z
 }
 
 // transform returns the world coordinate of a block based on scan position and rotation

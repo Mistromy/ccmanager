@@ -10,6 +10,9 @@ type (
 	Vector8 struct {
 		X, Y, Z int8
 	}
+	UVector8 struct {
+		X, Y, Z uint8
+	}
 )
 
 func Int32VectorAdd(a [3]int32, b [3]int32) [3]int32 {

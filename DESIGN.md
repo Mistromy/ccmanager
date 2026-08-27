@@ -1360,3 +1360,12 @@ inversion, BOLA, SSRF.
 player which shows up in scans and may interfere with pathfinding, 
 therefore it, and other such blocks must be filtered out before
 appending to the world
+- scan seems to return all, or nearly all data of blocks. meaning
+i can likely, while it needs testing, scan for example the contents 
+of chest. without ever getting close or opening them. that's why i
+wanna make the turltle take one more argument, that is the exact name
+of the block, so that on scaning for example `5 scan 1 minecraft:chest` 
+it will return either only the chests will all their data, or the full
+scan, but not trim the data of the specified block. this may likely 
+need chunking as it produces the risk of each item transmitting it's
+own metadata, but worth implementing
