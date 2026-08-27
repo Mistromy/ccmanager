@@ -7,7 +7,11 @@ import (
 )
 
 func GetBlock(position utils.Vector32) (string, error) {
-	blockID, ok := worldMap[position]
+	chunk, ok := chunks[getKey(position)]
+	if !ok {
+		return "", errors.New("block doesn't exist")
+	}
+	blockID, ok := chunk[inChunkPos(position)]
 	if !ok {
 		return "", errors.New("block doesn't exist")
 	}

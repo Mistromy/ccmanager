@@ -42,19 +42,20 @@ func convert(b [4]int8, p [3]int32, r int8, d []uint16) ([3]int32, uint16) {
 func setBlock(blockType uint16, pos [3]int32) {
 	vectorCoords := utils.Vector32{X: pos[0], Y: pos[1], Z: pos[2]}
 	key := getKey(vectorCoords)
-	inChunkPos := utils.UVector8{
-		X: uint8(vectorCoords.X & 15),
-		Y: uint8(vectorCoords.Y & 15),
-		Z: uint8(vectorCoords.Z & 15),
-	}
 	chunk, ok := chunks[key]
 	if !ok {
 		chunk = map[utils.UVector8]uint16{}
 		chunks[key] = chunk
 	}
-	chunk[inChunkPos] = blockType
+	chunk[inChunkPos(vectorCoords)] = blockType
+}
 
-	//worldMap[vectorCoords] = blockType
+func inChunkPos(worldPos utils.Vector32) utils.UVector8 {
+	return utils.UVector8{
+		X: uint8(worldPos.X & 15),
+		Y: uint8(worldPos.Y & 15),
+		Z: uint8(worldPos.Z & 15),
+	}
 }
 
 // getKey takes world coordinates and returns the key for the chunk containing that coordinate.
