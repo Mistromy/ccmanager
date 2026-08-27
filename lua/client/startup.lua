@@ -1,33 +1,37 @@
-local modules = peripheral.find("neuralInterface")
-peripheral.find("modem", rednet.open)
-if not modules then
-	error("Must have a neural interface", 0)
+local host = "http://100.106.228.50:6767"
+local password = "myPassword"
+
+term.clear()
+term.setCursorPos(1, 1)
+
+-- The glasses are worn and carry the boost hotkey, so they must run whether or
+-- not the server exists. Update from the server when it is reachable, keep a
+-- local copy, and always run the local copy.
+local res = http.get({
+    url = host .. "/source/client/main.lua",
+    headers = { Authorization = password },
+    timeout = 3,
+})
+
+if res then
+    local source = res.readAll()
+    res.close()
+
+    if load(source, "main.lua") then
+        local f = fs.open("main.lua", "w")
+        f.write(source)
+        f.close()
+        print("client updated")
+    else
+        print("update does not compile, keeping current")
+    end
+else
+    print("server unreachable, running local copy")
 end
 
-doorID = 17
+if not fs.exists("main.lua") then
+    print("no local main.lua and no server")
+    return
+end
 
-local meta = {}
-local hover = false
-parallel.waitForAny(
-
-	function()
-		while true do
-			local event, key = os.pullEvent()
-			if event == "key" and key == keys.leftAlt then
-				modules.launch(meta.yaw, meta.pitch, 3)
-			elseif event == "key" and key == keys.numPad9 then
-				rednet.send(doorID, "open")
-			elseif event == "key" and key == keys.numPad8 then
-				rednet.send(doorID, "close")
-			end
-		end
-	end,
-
-	function()
-		while true do
-			meta = modules.getMetaOwner()
-		end
-	end
-
-
-)
+shell.run("main.lua")
