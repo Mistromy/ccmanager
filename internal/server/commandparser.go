@@ -51,9 +51,9 @@ func parse(s string) {
 			}
 			log.Info(block)
 		case "list":
-			log.Info("list", turtles.GetAll())
-		case "commands":
-		//	TODO add commands list command
+			log.Info("list", "turtles", turtles.GetAllIDs())
+		case "help":
+			log.Print("Commands:\nnumber - specifies turtle id to execute command\n0 is broker\n1n is all turtles\ngetblock x y z\nlist\nhelp\nupdate\nclear")
 		case "update":
 			var s []string
 			s = append(s, "reboot")
@@ -62,8 +62,9 @@ func parse(s string) {
 		case "clear":
 			fmt.Print("\033[H\033[2J")
 		default:
-			log.Info("unknown command: %s", command)
+			log.Error("unknown command", "command", command)
 		}
+		sendTurtleData()
 	}
 }
 

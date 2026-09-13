@@ -247,7 +247,7 @@ local function connectionLoop()
         print("connected, listening on channel " .. brokerChannel)
 
         ws.send("broker " .. os.getComputerID() .. " online")
-        ws.send("getAll")
+        ws.send("getIDs")
 
         relay()
 
@@ -267,6 +267,9 @@ local function pingLoop()
         modem.transmit(allChannel, brokerChannel, "ping")
 
         if ws then
+            -- a verb plus a homogeneous list of ids. nothing follows it and
+            -- every element means the same thing, so json buys nothing here.
+            -- if this ever needs per-turtle detail, that is the cue to switch.
             local ids = {}
             for tid in pairs(known) do
                 if isUp(tid) then
@@ -274,7 +277,7 @@ local function pingLoop()
                 end
             end
             table.sort(ids)
-            pcall(ws.send, "heartbeat " .. textutils.serialiseJSON({ Alive = ids }))
+            pcall(ws.send, "heartbeat " .. table.concat(ids, " "))
         end
 
         draw()

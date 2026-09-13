@@ -7,7 +7,6 @@ import (
 
 var (
 	worldPalette []string
-	worldMap     = map[utils.Vector32]uint16{}
 	chunks       = map[uint64]map[utils.UVector8]uint16{}
 )
 

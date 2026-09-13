@@ -1,7 +1,6 @@
 package server
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -16,53 +15,7 @@ import (
 var hash []byte
 var upgrader = websocket.Upgrader{}
 var brokerConn *websocket.Conn
-
-func handleWs(w http.ResponseWriter, r *http.Request) {
-	conn, err := upgrader.Upgrade(w, r, nil)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		log.Error("upgrade failed", "error", err)
-		return
-	} // upgrade error
-	brokerConn = conn
-	defer func() { brokerConn = nil }()
-	defer func(conn *websocket.Conn) {
-		_ = conn.Close()
-	}(conn)
-
-	for {
-		_, msg, err := conn.ReadMessage()
-		if err != nil {
-			log.Error("connection closed", "error", err)
-			return
-		} // close connection
-		i := bytes.IndexByte(msg, ' ')
-		if i < 0 {
-			i = len(msg)
-		}
-		if string(msg[:i]) != "heartbeat" {
-			log.Debug("received", "msg", string(msg))
-		} // log received messages
-		//err = conn.WriteMessage(websocket.TextMessage, []byte("ok"))
-		switch string(msg[:i]) {
-		case "update":
-			updateTurtle(msg[i+1:])
-		case "register":
-			RegisterTurtle(msg[i+1:])
-		case "getAll":
-			tl := fmt.Sprintf("list %v", turtles.GetAll())
-			err := conn.WriteMessage(websocket.TextMessage, []byte(tl))
-			if err != nil {
-				return
-			}
-		case "scan":
-			parseScan(msg[i+1:])
-		}
-		if err != nil {
-			return
-		}
-	}
-}
+var clientConn *websocket.Conn
 
 func setHash(h []byte) {
 	hash = h
@@ -119,7 +72,7 @@ func GetTurtle(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetTurtleList(w http.ResponseWriter, _ *http.Request) {
-	_, _ = fmt.Fprint(w, turtles.GetAll())
+	_, _ = fmt.Fprint(w, turtles.GetAllIDs())
 }
 
 func updateTurtle(b []byte) {
@@ -151,7 +104,8 @@ func Start(port uint16) error {
 	http.HandleFunc("/source/", check(http.MethodGet, fs.ServeHTTP))
 	http.HandleFunc("/getTurtle", check(http.MethodGet, GetTurtle))
 	http.HandleFunc("/getAll", check(http.MethodGet, GetTurtleList))
-	http.HandleFunc("/ws", check(http.MethodGet, handleWs))
+	http.HandleFunc("/ws", check(http.MethodGet, turtleWs))
+	http.HandleFunc("/client", check(http.MethodGet, clientWs))
 	http.HandleFunc("/sendCommand", check(http.MethodPost, sendCommand))
 	return http.ListenAndServe(fmt.Sprintf(":%d", port), nil)
 }

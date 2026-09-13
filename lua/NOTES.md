@@ -68,6 +68,51 @@ Known issues and things to add later. Kept short on purpose.
   needs the server to merge rather than replace, or `Name`, `Fuel` and
   `Storage` get zeroed.
 
+## Glasses client (lua/client)
+
+Mod-level quirks and the position problem are written up in
+[PLETHORA.md](PLETHORA.md). Only project-specific items belong here.
+
+- **Nothing here may depend on the server.** The glasses carry the boost
+  hotkey. `startup.lua` keeps a local `main.lua` and runs it whether or not the
+  server answers; missing glasses disable rendering but not input; the link
+  loop retries forever and never throws.
+- **canvas3d frames are world anchored at creation.** The renderer draws only
+  when the data changes, never on a timer. Walking around inside one chunk
+  redraws nothing.
+- **canvas3d has no line primitive.** Every edge is a thin box, so a chunk
+  outline costs 12 boxes.
+- **The canvas anchors at the player's position the instant `create()` runs.**
+  The gps fix must be taken inside `redraw`, not reused from the position loop,
+  or geometry is displaced by however far the player moved in between.
+- **`gps.locate()` returns block-quantised coordinates ending in .5**, which is
+  the gps hosts' own block-centre offset surviving trilateration. Mixing it
+  with the canvas's exact anchor is what made geometry jump a whole block when
+  stepping onto a path block.
+- **Modem distance is block quantised too - measured, not assumed.** Every
+  distance `gpsprobe.lua` returned reconstructs exactly from the block-centre
+  position `gps.locate()` reports, e.g. host 288,32,-417 from 269.5,32.5,-436.5
+  gives sqrt(722.75) = 26.884010. The six decimals are irrational roots, not
+  sub-block information, so a custom trilateration would gain nothing.
+- **Open question: is the player's exact position reachable at all?**
+  `getMetaOwner` is the last candidate, since plethora's entity metadata is a
+  separate path from CC's modem positioning. If it is also quantised, world
+  anchored rendering is not viable here and only player-relative overlays are.
+- **Groups outlive the script.** Without `canvas.clear()` at startup, a restart
+  inherits every group the previous run drew.
+- **Colours look RGBA** (`0xRRGGBBAA`), matching the plethora docs and not
+  `head.lua`'s constants. Alpha on thin edge boxes reads close to opaque
+  regardless.
+- **`/client` is not routed yet.** `clientWs` exists but `Start` never
+  registers it, so the link loop will retry forever until it is.
+- **Position comes from `gps.locate()` at 2 Hz**, so geometry snaps to block
+  positions rather than gliding. Smooth tracking needs a sub-block source.
+- **Two server messages are assumed and not yet implemented**: `getChunk x y z`
+  replying `chunk {origin, palette, blocks}`, and `getTurtles` replying
+  `turtles {Turtles:[{ID, Name, Loc}]}`.
+- **`showBlocks` is off by default** and capped at `maxBlocks`. A full 16^3
+  chunk is up to 4096 boxes, which is very unlikely to render at 2 Hz.
+
 ## Later
 
 - Envelope on the uplink so the server can tell a register from an update from

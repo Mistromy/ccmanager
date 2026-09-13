@@ -43,3 +43,7 @@ func LoadData(path string) {
 		log.Info("Loaded turtle", "id", t.ID, "name", t.Name)
 	}
 }
+
+func PrintData() {
+	log.Debug(turtles)
+}

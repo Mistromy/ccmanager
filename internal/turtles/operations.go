@@ -45,10 +45,25 @@ func Get(id uint16) *Turtle {
 	return turtles[id]
 }
 
-func GetAll() []uint16 {
+func GetAllIDs() []uint16 {
 	var tl []uint16
 	for _, t := range turtles {
 		tl = append(tl, t.ID)
 	}
 	return tl
+}
+
+func WriteStatus(id uint16) {
+	if turtles[id] != nil {
+		turtles[id].Status = true
+	}
+
+}
+
+func GetAllData() []Turtle {
+	var response []Turtle
+	for _, turtle := range turtles {
+		response = append(response, *turtle)
+	}
+	return response
 }

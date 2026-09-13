@@ -11,13 +11,16 @@ local reconnectEvery = 5
 local edgeThickness = 0.05
 local throughWalls = true -- draw over terrain instead of being occluded by it
 local debugKey = keys.rightAlt
--- Residual hand tune. Measured as zero: gps corner plus withinBlock already
--- matches whatever the canvas anchors to, so do not "correct" for eye height.
-local offset = { x = 0, y = 0, z = 0 }
+local hudScale = 0.5 -- text is large by default at most gui scales
+-- Residual hand tune, measured against a freecam. Exactly one block on y, not
+-- the 1.62 an eye-height correction would imply - gps and withinBlock disagree
+-- by a whole block about which block the player occupies.
+local offset = { x = 0, y = 1, z = 0 }
 
 local colBound = 0x33FF3380
 local colVertical = 0x33FF3340
-local colTurtle = 0xFF8800AA
+local colTurtleUp = 0x33FF33AA   -- server reports it as live
+local colTurtleDown = 0xFF3333AA -- registered but silent, may not be there
 local colLabel = 0xFFFFFFFF
 
 --------------------------------------------------------------------------------
@@ -31,6 +34,7 @@ if not modules then
 end
 
 local canvas = modules.canvas3d and modules.canvas3d() or nil
+local hud = modules.canvas and modules.canvas() or nil
 if not canvas then
     print("no overlay glasses, rendering disabled")
 end
@@ -59,9 +63,12 @@ local function seeThrough(obj)
 end
 
 -- groups outlive the script, so a restart inherits everything the last run
--- drew. clear the whole canvas before drawing anything.
+-- drew. clear both surfaces before drawing anything.
 if canvas then
     try(canvas, "clear")
+end
+if hud then
+    try(hud, "clear")
 end
 
 --------------------------------------------------------------------------------
@@ -76,6 +83,84 @@ local chunkData
 local turtles = {}
 local dirty = true
 local root         -- current canvas group
+
+-- Go's json tags are lowercase on Turtle but Loc's fields carry none, so the
+-- payload mixes casing. Take whichever spelling is present and normalise once,
+-- so the draw code never has to care which the server chose.
+local function pick(t, ...)
+    if type(t) ~= "table" then
+        return nil
+    end
+    for _, k in ipairs({ ... }) do
+        if t[k] ~= nil then
+            return t[k]
+        end
+    end
+    return nil
+end
+
+-- one turtle into the normalised record. key is the map key when the payload
+-- was an object rather than an array, since a marshalled map[uint16]*Turtle
+-- carries the id only as the key.
+local function addTurtle(out, t, key)
+    if type(t) ~= "table" then
+        return
+    end
+    local id = tonumber(pick(t, "ID", "id")) or tonumber(key)
+    if not id then
+        return
+    end
+
+    -- merge rather than replace, so a single-turtle push carrying only
+    -- position does not blank the name and fuel it did not mention
+    local r = out[id] or { id = id, up = true }
+    local name = pick(t, "Name", "name")
+    local fuel = tonumber(pick(t, "Fuel", "fuel"))
+    local status = pick(t, "Status", "status", "Alive", "alive")
+    local loc = pick(t, "Loc", "loc")
+
+    if name ~= nil and name ~= "" then
+        r.name = name
+    end
+    if fuel ~= nil then
+        r.fuel = fuel
+    end
+    if status ~= nil then
+        r.up = status ~= false
+    end
+    if loc then
+        r.x = tonumber(pick(loc, "X", "x")) or r.x
+        r.y = tonumber(pick(loc, "Y", "y")) or r.y
+        r.z = tonumber(pick(loc, "Z", "z")) or r.z
+    end
+
+    out[id] = r
+end
+
+-- accepts an array, an object wrapping an array, or an object keyed by id
+local function readTurtles(payload)
+    local out = {}
+    if type(payload) ~= "table" then
+        return out
+    end
+
+    local list = payload
+    if payload[1] == nil then
+        list = pick(payload, "Turtles", "turtles")
+    end
+
+    if list and list[1] ~= nil then
+        for _, t in ipairs(list) do
+            addTurtle(out, t, nil)
+        end
+    else
+        -- keyed object: the key is the id
+        for k, v in pairs(list or payload) do
+            addTurtle(out, v, k)
+        end
+    end
+    return out
+end
 
 -- The canvas anchors at the player's EXACT position when create() runs, so the
 -- offsets must come from that same exact position.
@@ -170,15 +255,18 @@ end
 
 local function drawTurtles(px, py, pz)
     for id, t in pairs(turtles) do
-        local loc = t.Loc
-        if loc and loc.X then
-            local x, y, z = loc.X - px, loc.Y - py, loc.Z - pz
-            box(x, y, z, 1, 1, 1, colTurtle)
+        if t.x then
+            local x, y, z = t.x - px, t.y - py, t.z - pz
+            box(x, y, z, 1, 1, 1, t.up and colTurtleUp or colTurtleDown)
 
             if root.addFrame then
+                local text = t.name or ("turtle " .. id)
+                if t.fuel then
+                    text = text .. "  " .. t.fuel
+                end
                 local label = root.addFrame({ x + 0.5, y + 1.4, z + 0.5 })
                 seeThrough(label)
-                label.addText({ 0, 0 }, t.Name or ("turtle " .. id), colLabel)
+                label.addText({ 0, 0 }, text, colLabel)
             end
         end
     end
@@ -214,6 +302,42 @@ local function redraw()
     end
 end
 
+-- the flat hud is a separate, much cheaper surface than canvas3d, and it works
+-- with no turtle data at all because the link state is worth showing on its own
+local function drawHud()
+    if not hud then
+        return
+    end
+    hud.clear()
+
+    local step = 10 * hudScale
+    local function text(row, str, colour)
+        local o = hud.addText({ 5, 5 + row * step }, str, colour)
+        try(o, "setScale", hudScale)
+        return o
+    end
+
+    local row = 0
+    text(row, "fleet: " .. (ws and "connected" or "offline"),
+        ws and 0x33FF33FF or 0xFF5555FF)
+
+    local ids = {}
+    for id in pairs(turtles) do
+        ids[#ids + 1] = id
+    end
+    table.sort(ids)
+
+    for _, id in ipairs(ids) do
+        row = row + 1
+        local t = turtles[id]
+        local line = id .. "  " .. (t.name or "?")
+        if t.fuel then
+            line = line .. "  " .. t.fuel
+        end
+        text(row, line, t.up and 0xFFFFFFFF or 0xFF5555FF)
+    end
+end
+
 --------------------------------------------------------------------------------
 -- server link. entirely optional.
 --------------------------------------------------------------------------------
@@ -232,13 +356,30 @@ local function handle(text)
         dirty = true
     elseif verb == "turtles" then
         local payload = textutils.unserialiseJSON(rest)
-        if payload and payload.Turtles then
-            turtles = {}
-            for _, t in ipairs(payload.Turtles) do
-                turtles[t.ID] = t
+        if not payload then
+            print("turtles: bad json, " .. #rest .. " bytes")
+        else
+            turtles = readTurtles(payload)
+            local n = 0
+            for _ in pairs(turtles) do
+                n = n + 1
             end
+            print("turtles: parsed " .. n)
             dirty = true
         end
+    elseif verb == "update" then
+        -- a single turtle, merged into what is already known
+        local payload = textutils.unserialiseJSON(rest)
+        if payload then
+            addTurtle(turtles, payload, nil)
+            dirty = true
+        else
+            print("update: bad json, " .. #rest .. " bytes")
+        end
+    elseif verb == "reboot" then
+        -- startup.lua refetches main.lua, so a reboot is also an update
+        print("rebooting")
+        os.reboot()
     elseif verb == "list" then
         send("getTurtles")
     else
@@ -258,6 +399,7 @@ local function linkLoop()
             sleep(reconnectEvery)
         else
             ws = sock
+            dirty = true
             print("connected")
             send("getTurtles")
 
@@ -300,6 +442,15 @@ local function inputLoop()
             if px then
                 print(("exact  %.4f %.4f %.4f"):format(px, py, pz))
             end
+            if hud and hud.getSize then
+                local w, h = hud.getSize()
+                print(("hud    %s x %s"):format(tostring(w), tostring(h)))
+            end
+            local n = 0
+            for _ in pairs(turtles) do
+                n = n + 1
+            end
+            print("turtles " .. n)
         end
     end
 end
@@ -360,14 +511,19 @@ local function renderLoop()
         if dirty then
             dirty = false
             redraw()
+            drawHud()
         end
         sleep(0.2)
     end
 end
 
+-- renderLoop runs whenever either surface exists, since the hud is useful on
+-- its own. positionLoop only matters for world geometry.
 local loops = { inputLoop, metaLoop, linkLoop }
 if canvas then
     loops[#loops + 1] = positionLoop
+end
+if canvas or hud then
     loops[#loops + 1] = renderLoop
 end
 

@@ -8,6 +8,7 @@ type Turtle struct {
 	Loc     Loc      `json:"loc"`
 	Fuel    int      `json:"fuel"`
 	Storage [16]Item `json:"storage"`
+	Status  bool     `json:"status"`
 }
 
 // Item is all the data a single slot / Item can hold.

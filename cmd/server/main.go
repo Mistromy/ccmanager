@@ -27,7 +27,12 @@ func main() {
 		log.Fatal(err)
 	}
 
+	turtles.PrintData()
+
 	turtles.LoadData(turtleDataPath)
+
+	turtles.PrintData()
+
 	log.Info("Starting ComputerCraft Server.", "port", port)
 	go func() {
 		if err = server.Start(port); err != nil {
@@ -35,11 +40,15 @@ func main() {
 		}
 	}()
 	go server.TuiInput()
+	turtles.PrintData()
 	go turtles.PeriodicSave(turtleDataPath)
+	turtles.PrintData()
 	<-c
+	turtles.PrintData()
 	err = turtles.SaveData(turtleDataPath)
 	if err != nil {
 		log.Error("saving data", "path", turtleDataPath)
 	}
+	turtles.PrintData()
 	log.Info("Stopping ComputerCraft Server.", "port", port)
 }
