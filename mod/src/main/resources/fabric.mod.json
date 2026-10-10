@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "id": "ccmanager",
+  "version": "${version}",
+  "name": "CCManager",
+  "description": "",
+  "authors": [],
+  "contact": {},
+  "license": "All-Rights-Reserved",
+  "icon": "assets/ccmanager/icon.png",
+  "environment": "client",
+  "entrypoints": {
+    "client": [
+      "tech.mista.ccmanager.client.CcmanagerClient"
+    ],
+    "main": [
+      "tech.mista.ccmanager.Ccmanager"
+    ]
+  },
+  "mixins": [
+    "ccmanager.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": ">=${loader_version}",
+    "fabric-language-kotlin": ">=${kotlin_loader_version}",
+    "fabric-api": "*",
+    "minecraft": "${minecraft_version}"
+  }
+}
