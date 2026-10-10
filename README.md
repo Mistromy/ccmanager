@@ -170,4 +170,4 @@ types. Physics vehicles if the pack ever migrates.
 ## Open questions
 
 Design-level questions and things to verify before building on them are in
-DESIGN.md §11.
+DESIGN.md §12.

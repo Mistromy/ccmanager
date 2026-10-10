@@ -14,19 +14,20 @@ re-litigated from scratch, not because any of it is built.
 1. [Turtle registry](#1-turtle-registry)
 2. [Command protocol](#2-command-protocol)
 3. [World storage](#3-world-storage)
-4. [Pathfinding](#4-pathfinding)
-5. [Exploration and scheduling](#5-exploration-and-scheduling)
-6. [Task system](#6-task-system)
-7. [Heatmap](#7-heatmap)
-8. [Networking and API](#8-networking-and-api)
-9. [AE2 storage subsystem](#9-ae2-storage-subsystem)
-10. [Viewer](#10-viewer)
-11. [Open questions](#11-open-questions)
-12. [Testing philosophy](#12-testing-philosophy)
-13. [Go conventions and libraries](#13-go-conventions-and-libraries)
-14. [Rejected / deferred](#14-rejected--deferred)
-15. [References](#15-references)
-16. [Notes](#16-notes)
+4. [Persistence](#4-persistence)
+5. [Pathfinding](#5-pathfinding)
+6. [Exploration and scheduling](#6-exploration-and-scheduling)
+7. [Task system](#7-task-system)
+8. [Heatmap](#8-heatmap)
+9. [Networking and API](#9-networking-and-api)
+10. [AE2 storage subsystem](#10-ae2-storage-subsystem)
+11. [Viewer](#11-viewer)
+12. [Open questions](#12-open-questions)
+13. [Testing philosophy](#13-testing-philosophy)
+14. [Go conventions and libraries](#14-go-conventions-and-libraries)
+15. [Rejected / deferred](#15-rejected--deferred)
+16. [References](#16-references)
+17. [Notes](#17-notes)
 
 ---
 
@@ -34,6 +35,7 @@ re-litigated from scratch, not because any of it is built.
 
 **Store:** unexported `map[uint16]*Turtle` at package level in `turtles`,
 created with `make` at startup. Exported functions are the only doors in.
+Persisted to the `turtles` table in `main.db` (§4); the map stays the live copy.
 
 **Why a map, not a slice indexed by ID:**
 - A slice must be grown to length ≥ 47 before you can write index 46. Every
@@ -243,6 +245,11 @@ Implementation: absence of a chunk = unknown. Scanned-and-empty = an explicit
 air entry. Scan bounds recorded separately, so "inside a scan boundary, null =
 air; outside, null = unknown."
 
+**Inside a dense chunk there is no absence** — a `[4096]uint16` slot always
+holds a value, and a fresh array is all zeros. So **palette index 0 is reserved
+for unknown** (`worldPalette` starts as `[]string{"unknown"}`), and real block
+types start at 1. Air is an ordinary scanned type, never index 0.
+
 **Unknown ≠ stale.** Previously-known air is very probably still air. Never
 collapse the two — a stale base chunk and a never-visited chunk want different
 pathfinding costs.
@@ -296,6 +303,14 @@ In order of value:
    bits, not 8.
 4. **RLE** over the packed indices.
 5. **zstd** on cold chunks.
+
+**Palette entries are block states, not block names** —
+`minecraft:oak_stairs[facing=north,half=top]` and the south-facing variant are
+separate entries, as in Minecraft. Each block still stores one index; states
+grow the palette, not the chunk. Large modpacks can exceed 65,536 distinct
+states, which overflows a `uint16` *global* index — which is why the palette is
+**per chunk** (a chunk rarely holds more than a few dozen states) and maps to
+global state ids.
 
 Order matters — palette → bit-pack → RLE beats RLE on raw uint16s, because
 you're compressing 3-bit symbols instead of 16-bit ones.
@@ -366,11 +381,15 @@ sequential access.** You cannot compute the cost of a coordinate without
 knowing what block is there, so a compressed chunk must be decoded before
 pathfinding through it.
 
-| Tier          | Form                                | Purpose                |
-|---------------|-------------------------------------|------------------------|
-| Disk          | zstd over raw palette-indexed bytes | storage                |
-| Resident cold | RLE / bit-packed                    | compact, not queryable |
-| Hot           | decoded dense array                 | `A*` random access     |
+| Tier          | Form                                                  | Purpose                |
+|---------------|-------------------------------------------------------|------------------------|
+| Disk          | SQLite blob: version byte + per-chunk palette, zstd   | storage (§4)           |
+| Resident cold | RLE / bit-packed                                      | compact, not queryable |
+| Hot           | `[4096]uint16` (8 KB) + the chunk's storages (§4.8)   | random access          |
+| Pathfinder    | `[4096]uint8` weights (4 KB)                          | `A*` cost lookups      |
+
+Each tier is derived from the one above it. The disk form may carry more
+detail (block states, etc.) than the hot form ever needs.
 
 Requires an **LRU cache with eviction** on the hot tier — decode on demand,
 drop least-recently-used when over budget. ~50 lines with a map and a linked
@@ -434,11 +453,10 @@ rescan.
 **Chunk payloads: write raw bytes.** The chunk *is* a byte array; there's no
 serialization layer needed. `f.Write(data)` plus a small header.
 
-**Metadata (scan records, turtle state, block registry): `encoding/gob`.**
-Native Go binary format, handles structs/maps/slices automatically, far smaller
-and less code than JSON. Caveat: **Go-only** (the Rust viewer can't read it —
-fine, since it talks to Go over websocket and Go transcodes), and it embeds
-type info, so renames can break old files.
+**Metadata (scan records, turtle state, storages, block registry): SQLite
+tables, §4.** *Superseded:* this was `encoding/gob` — native, compact, but
+Go-only and fragile under renames. Rows with typed columns survive field
+renames and are queryable.
 
 **Config (port, password hash) is a different problem from state.** Config is
 written once and read at startup; `os.UserConfigDir()` gives the right path per
@@ -454,11 +472,10 @@ addresses. Works until it doesn't, silently.
 
 **Add a version byte to every chunk header.** The format will change.
 
-**Container:** a single file is fine initially. What forces regions is
-fragmentation — a chunk that grows past its slot must move, requiring
-free-space management. Copy **Anvil**: group chunks into region files
-(Minecraft uses 32×32; 256×256 planned here) with a header table of offsets so
-you can seek directly to a chunk.
+**Container: SQLite, one row per chunk in `world.db` (§4.2, §4.5).**
+*Superseded:* this was Anvil-style region files (header offset table,
+free-space management for chunks that outgrow their slot). Those are the
+problems a database already solves; region files are deferred.
 
 **Endianness:** pick **big-endian** (network byte order, readable hex dumps)
 and write it down. Go: `binary.BigEndian.PutUint16`. Lua: `string.pack` with
@@ -468,9 +485,326 @@ a bug.
 
 ---
 
-## 4. Pathfinding
+## 4. Persistence
 
-### 4.1 What A* is doing
+**SQLite, two files: `world.db` for chunks, `main.db` for everything else.**
+Memory is the live copy; the database is the save file.
+
+### 4.1 Memory is live, the database is the save file
+
+Nothing on a hot path touches SQLite. `setBlock` writes the in-memory chunk and
+marks it dirty; a flush writes dirty chunks every N seconds and on shutdown.
+Same for turtles, storages, and heatmap counters — accumulate in memory, write
+out periodically. This is the existing `PeriodicSave` pattern, generalised.
+
+**Batch every flush into one transaction.** SQLite's default is one transaction
+per statement, and each commit waits for the disk. 500 inserts as 500 commits
+is slow; the same 500 inside one `BEGIN … COMMIT` is fast. The single most
+common SQLite performance mistake.
+
+### 4.2 Why SQLite, and not hand-rolled region files
+
+§3.8 previously planned Anvil-style region files. Every problem listed there is
+a database problem:
+
+| Region file problem                          | SQLite                              |
+|----------------------------------------------|-------------------------------------|
+| Survive a crash mid-write (temp + rename)    | atomic transactions                 |
+| Chunk outgrows its slot, free-space tracking | page allocator, free list           |
+| Header table of offsets to seek a chunk      | B-tree on the primary key           |
+| Version byte per chunk                       | still needed — it's in the blob     |
+
+Writing region files is writing a small database. SQLite is also *faster* than
+the filesystem for reading blobs of a few KB (its own benchmark: ~35% faster
+than individual files), which is exactly what a compressed chunk is.
+
+Minecraft uses region files because of terabyte worlds and an external format
+contract. Neither applies. **Region files are deferred**, revisit only if the
+world reaches many GB and bulk-read throughput is measured as the bottleneck.
+
+The chunk *encoding* plan (palette → bit-pack → zstd, version byte) is
+unchanged. Only the container moves.
+
+### 4.3 How many files: split by lifecycle, not by size
+
+**A separate file is justified by one of:**
+
+1. **Different lifecycle** — it can be wiped or rebuilt independently.
+2. **Different backup needs.**
+3. **Write contention** — SQLite allows **one writer per file**. A large flush
+   blocks every other write to the same file.
+
+**And forbidden by:** tables that reference each other. Foreign keys cannot
+cross files, and in WAL mode a transaction spanning attached files is atomic
+per file, not across them.
+
+Applied:
+
+| File        | Contents                                         | Why separate                                                                 |
+|-------------|--------------------------------------------------|------------------------------------------------------------------------------|
+| `world.db`  | chunks, per-chunk heatmap                         | rebuildable by rescanning, wiped on format changes, biggest writer, no FKs |
+| `main.db`   | turtles, storages, items, slots, history          | irreplaceable; turtles ↔ storages reference each other                      |
+
+**Storages are not their own file.** A turtle's inventory *is* a storage
+(`turtles.storage_id`), so splitting them breaks referential integrity for no
+gain. Size is not a reason (§4.9).
+
+**History starts in `main.db`.** It is append-only and grows forever; move it to
+`history.db` when it's big enough to want archiving separately. `ATTACH` makes
+cross-file reads trivial if needed.
+
+### 4.4 `main.db` schema
+
+**Rule: tables are for kinds of things, rows are for instances.** Never create
+a table at runtime. A thousand chests is a thousand rows in `storages`, not a
+thousand tables — same shape as projects/images.
+
+```sql
+CREATE TABLE IF NOT EXISTS storages (
+    id          INTEGER PRIMARY KEY,
+    kind        TEXT    NOT NULL,              -- 'chest', 'barrel', 'turtle', 'shulker', 'ae2', ...
+    name        TEXT    NOT NULL DEFAULT '',
+    x           INTEGER,                       -- NULL for anything without a fixed block (turtles, nested)
+    y           INTEGER,
+    z           INTEGER,
+    chunk       INTEGER,                       -- getKey(x, y, z), computed in Go
+    parent_id   INTEGER REFERENCES storages(id) ON DELETE CASCADE,  -- shulker/backpack inside a slot
+    parent_slot INTEGER,
+    updated_at  INTEGER NOT NULL DEFAULT 0     -- unix time of the last full read
+) STRICT;
+
+CREATE UNIQUE INDEX IF NOT EXISTS storages_pos   ON storages (x, y, z);
+CREATE        INDEX IF NOT EXISTS storages_chunk ON storages (chunk);
+
+CREATE TABLE IF NOT EXISTS items (              -- the item palette
+    id           INTEGER PRIMARY KEY,
+    name         TEXT NOT NULL,                 -- 'minecraft:diamond_pickaxe'
+    nbt          TEXT NOT NULL DEFAULT '',      -- CC's nbt hash; '' for plain items
+    display_name TEXT NOT NULL DEFAULT '',
+    details      TEXT NOT NULL DEFAULT '',      -- heavy metadata (enchants etc.) as JSON, stored once
+    UNIQUE (name, nbt)
+) STRICT;
+
+CREATE TABLE IF NOT EXISTS storage_slots (      -- slotted: chests, barrels, turtles, shulkers
+    storage_id INTEGER NOT NULL REFERENCES storages(id) ON DELETE CASCADE,
+    slot       INTEGER NOT NULL,
+    item_id    INTEGER NOT NULL REFERENCES items(id),
+    count      INTEGER NOT NULL,
+    PRIMARY KEY (storage_id, slot)
+) STRICT, WITHOUT ROWID;
+
+CREATE TABLE IF NOT EXISTS storage_items (      -- pooled: AE2 / RS networks
+    storage_id INTEGER NOT NULL REFERENCES storages(id) ON DELETE CASCADE,
+    item_id    INTEGER NOT NULL REFERENCES items(id),
+    count      INTEGER NOT NULL,                -- AE2 counts are 64-bit longs
+    PRIMARY KEY (storage_id, item_id)
+) STRICT, WITHOUT ROWID;
+
+CREATE TABLE IF NOT EXISTS turtles (
+    id         INTEGER PRIMARY KEY,             -- the CC computer id
+    name       TEXT    NOT NULL,
+    x          INTEGER NOT NULL DEFAULT 0,
+    y          INTEGER NOT NULL DEFAULT 0,
+    z          INTEGER NOT NULL DEFAULT 0,
+    rot        INTEGER NOT NULL DEFAULT 0 CHECK (rot BETWEEN 0 AND 3),
+    fuel       INTEGER NOT NULL DEFAULT 0,
+    storage_id INTEGER REFERENCES storages(id)
+) STRICT;
+```
+
+Referenced tables are declared before the tables that reference them.
+
+**Column choices:**
+
+- **`INTEGER PRIMARY KEY`** aliases SQLite's internal rowid — the fastest
+  possible key lookup.
+- **`NOT NULL DEFAULT 0`** maps onto Go zero values and avoids `sql.NullInt64`
+  on every scan. NULL only where absence is meaningful (no position, no parent).
+- **`CHECK (rot BETWEEN 0 AND 3)`** — the `Rot` enum, enforced by the database.
+- **`STRICT`** — without it SQLite will store `'hello'` in an INTEGER column.
+- **`WITHOUT ROWID`** on the slot/item tables — rows are small and always looked
+  up by their composite key, so the table *is* the index, no duplicate copy.
+  Not used where rows hold large blobs (`chunks`), where it's slower.
+- **Structs flatten to columns.** `Loc{X,Y,Z,Rot}` becomes four columns. Lists
+  become tables. JSON struct tags are irrelevant to SQL; `rows.Scan` fills
+  fields by position.
+
+**Not persisted:** `Turtle.Status`. Liveness is derived from heartbeats and is
+wrong the moment the process restarts.
+
+**Slotted vs pooled are different shapes.** Chests have slots and slots matter
+(`pushItems` and `turtle.select` address them). AE2 has no slots, only totals.
+Forcing one into the other's table means a meaningless slot number or a lost
+one.
+
+**The item palette** is §3.3's block palette applied to items. A slot row is a
+handful of small integers; the kilobytes of NBT on an enchanted tool or written
+book are stored once per *unique* item, not once per slot.
+
+**`nbt` is part of item identity.** Two enchanted books share the name
+`minecraft:enchanted_book`. CC:Tweaked's `list()` / `getItemDetail()` return an
+`nbt` hash for exactly this; without it every book and damaged tool merges into
+one row. See §10.2.
+
+**Nesting:** a shulker or backpack is a storage whose `parent_id`/`parent_slot`
+says where it sits. Same table, recursive.
+
+**Totals across everything** — one query, turtles included for free because
+their inventories are storages:
+
+```sql
+SELECT item_id, SUM(count) FROM (
+    SELECT item_id, count FROM storage_slots
+    UNION ALL
+    SELECT item_id, count FROM storage_items
+) GROUP BY item_id;
+```
+
+### 4.5 `world.db` schema
+
+```sql
+CREATE TABLE IF NOT EXISTS chunks (
+    key        INTEGER PRIMARY KEY,             -- getKey(): 22+12+22 = 56 bits, fits signed int64
+    data       BLOB    NOT NULL,                -- version byte + encoded chunk (§3.3), zstd
+    updated_at INTEGER NOT NULL DEFAULT 0
+) STRICT;
+```
+
+The chunk key is already a unique integer, so it becomes the rowid directly.
+The blob is opaque to SQL — the database never looks inside a chunk.
+
+The per-chunk heatmap (§8) lives here too, keyed the same way.
+
+### 4.6 World ↔ storages: detail points at the world, never the reverse
+
+The chunk is `[4096]uint16` of palette indices. It says *what* is at a position
+(`minecraft:chest`), not what's inside it. **The storage owns its position**;
+the world holds no references.
+
+- **"What's inside the block at x,y,z"** — the unique `storages_pos` index.
+- **"Storages near a coordinate"** — compute the surrounding chunk keys with
+  `getKey`, then `WHERE chunk IN (...)`. This is the reverse search; it needs
+  no pointers in the chunk.
+
+**This is Minecraft's own design.** Chunks store palette-indexed block states;
+chest contents are stored separately as *block entities* keyed by position.
+
+**Why not storage pointers in the chunk:** the same fact in two places, and
+eventually they disagree — a chest is broken, one side is updated, a phantom
+storage remains. **Each fact has exactly one owner.** It would also spend bytes
+in every block of the world for the handful that are containers.
+
+A position or chunk key is a plain number, not a foreign key, which is what lets
+the world live in a different file. No integrity is lost — the world is
+rebuildable anyway.
+
+**Multi-block storages** (double chests, AE2 networks spanning hundreds of
+blocks) are one storage at many positions. Deferred: a
+`storage_blocks(storage_id, x, y, z)` table when needed. AE2 meanwhile records
+the position of its access point.
+
+**Discovery:** scans may return container contents without the turtle opening
+anything (§17). A scanned chest upserts a `storages` row by position.
+
+### 4.7 Updating an inventory: full snapshot per storage
+
+§10.1's "full snapshot, no diff", applied to the database. When a storage
+reports, in one transaction:
+
+```sql
+DELETE FROM storage_slots WHERE storage_id = ?;
+INSERT INTO storage_slots ... ;   -- one row per non-empty slot
+UPDATE storages SET updated_at = ? WHERE id = ?;
+```
+
+- **Only non-empty slots get rows.** No row = empty slot. A double chest
+  holding three stacks is three rows, not 54.
+- **Self-healing.** A lost report is repaired by the next one.
+- **Atomic.** No reader ever sees a half-empty chest.
+- New items are upserted into `items` first (`INSERT … ON CONFLICT(name, nbt)
+  DO NOTHING`, then select the id).
+
+### 4.8 Hot chunks carry their storages
+
+The hot tier (§3.5) holds a chunk's storages alongside its blocks, so a hot
+query never touches the database:
+
+```go
+type HotChunk struct {
+    Blocks   *[4096]uint16
+    Storages map[uint16]*Storage // key = mortonIndex(pos), same index as Blocks
+}
+```
+
+Becoming hot: load blocks from `world.db`, storages from `main.db` with
+`WHERE chunk = ?`. While hot: all reads from memory. Changed or cooling: write
+dirty storages back. The map is *built from* the database, not a second stored
+copy, so §4.6's one-owner rule holds.
+
+A cold-chunk storage lookup is an indexed query — microseconds, and recently
+used pages sit in the OS cache. What the hot tier saves is the
+query-and-rebuild-structs work, not disk seeks.
+
+### 4.9 Size
+
+SQLite stores integers as varints: a count of 64 is 1 byte, 1.2M is 4 bytes.
+With the item palette, a `storage_items` row is ~10–12 bytes.
+
+| Data                                       | Rows        | Approx size  |
+|--------------------------------------------|-------------|--------------|
+| 1,000 chests × 27 slots, all full          | 27,000      | ~0.5 MB      |
+| AE2, 1,000 item types                      | 1,000       | ~12 KB       |
+| 100 turtles × 16 slots                     | 1,600       | ~30 KB       |
+| Item palette, 2,000 unique × 200 B meta    | 2,000       | ~0.4 MB      |
+| Item palette, 10,000 unique × 5 KB meta    | 10,000      | ~50 MB (extreme) |
+
+Metadata-heavy items are the only thing that moves the number, and the palette
+caps that at once per unique item. SQLite is comfortable at many GB. The world
+is the big file, not storages.
+
+**The stored chunk may grow beyond the hot form.** Block states are planned
+(§3.3), and the disk tier can carry more detail than the 8 KB hot array or the
+4 KB pathfinder array, because zstd compresses terrain heavily and only the hot
+set is resident. The version byte makes format growth a migration, not a wipe.
+
+### 4.10 Go mechanics
+
+- **Driver: `modernc.org/sqlite`** — pure Go. `mattn/go-sqlite3` needs cgo,
+  which on Windows means installing a C compiler. Same reasoning as choosing
+  `klauspost/compress` for zstd.
+- **Register it with a blank import**: `import _ "modernc.org/sqlite"`. The
+  driver's own `init()` registers the name `"sqlite"`; without the import,
+  `sql.Open` fails with `unknown driver`.
+- **`database/sql`, plain SQL strings.** No ORM (§14).
+- **Pragmas go in the DSN, not in an `Exec`.** `*sql.DB` is a connection pool,
+  and `foreign_keys` is per connection — an `Exec("PRAGMA foreign_keys = ON")`
+  enables it on one random connection. With modernc:
+  `file:main.db?_pragma=foreign_keys(1)&_pragma=journal_mode(WAL)`.
+  Foreign keys are **off by default** in SQLite; `ON DELETE CASCADE` does
+  nothing without this.
+- **WAL mode** — readers and the writer stop blocking each other.
+- **Open from `main`, never from `init()`.** `init` runs before `main` and
+  before `Setup`, cannot return an error (so a failure leaves a nil `*sql.DB`
+  that panics later, far from the cause), and runs in every test that imports
+  the package. Export `db.Open() error`, call it from `main`, `log.Fatal` on
+  failure. `init` is for things that cannot fail and touch nothing external —
+  the Morton LUT, driver registration.
+- **Schema in a file:** `schema.sql` next to the package, loaded with
+  `//go:embed schema.sql` into a `string`, run with one `Exec` at startup. Every
+  statement is `IF NOT EXISTS`, so rerunning is safe.
+- **Version the schema from day one** with `PRAGMA user_version`. Read it at
+  startup: 0 → run the schema, set 1. Later changes become "if 1, migrate to
+  2." Without it the first added column leaves old databases with no upgrade
+  path.
+- **Counts are `int64`** in Go. AE2 exceeds int32.
+- **On load, `Turtle.Storage[slot-1]`** — Lua slots are 1–16. The array index
+  already encodes the slot, so `Item.Slot` is redundant.
+
+---
+
+## 5. Pathfinding
+
+### 5.1 What A* is doing
 
 `f = g + h`. **`g`** is the real cost accumulated so far. **`h`** is the
 heuristic — an estimate of the cost remaining to the goal. A* always expands
@@ -504,7 +838,7 @@ returns a path fast, then lowers ε to improve it while time allows — directly
 applicable to a fleet where a turtle can start moving on a rough path while the
 server refines it.
 
-### 4.2 Orientation belongs in the node
+### 5.2 Orientation belongs in the node
 
 Plain A* over `(x, y, z)` produces **staircase paths** in open space. When it
 expands a node it has no idea which way the turtle was facing to get there, so
@@ -526,7 +860,7 @@ sequence**, with no post-processing from coordinates to turtle instructions.
 Manhattan remains admissible. A minimum-turns term can be added to tighten it,
 but get it wrong and optimality goes.
 
-### 4.3 Search shaping
+### 5.3 Search shaping
 
 **The bounding box between start and goal contains every optimal Manhattan
 path.** Any move outside it is strictly wasted, because you'd have to come
@@ -547,7 +881,7 @@ Note this becomes unnecessary once orientation is in the node: with turn costs,
 the staircase genuinely costs more than the L-path, so there's no tie left to
 break.
 
-### 4.4 Cost model
+### 5.4 Cost model
 
 Nearly all blocks are breakable, so this is not a maze — it's a weighted
 traversal. Solid blocks cost more (fuel + time), expensive/rare blocks cost
@@ -585,7 +919,7 @@ produces NaN if floats are ever involved. Air in the same zone routes normally.
 exhaust the open set and return nothing. "No path exists" must be a handled
 outcome, not a hang.
 
-### 4.5 Performance
+### 5.5 Performance
 
 **`A*`'s own bookkeeping is usually bigger than the world data.** Open set,
 closed set, and came-from map for a long path run to tens of thousands of
@@ -598,7 +932,7 @@ is ~200KB — comfortably L2, and L2 is not a problem. You cannot pin anything t
 L1; the levers are access pattern and working-set size. Go has no prefetch
 intrinsics.
 
-### 4.6 Replanning
+### 5.6 Replanning
 
 **Replan on relevance, not on change.** A scan 500 blocks away doesn't affect
 the current path. Check whether changed chunks intersect the remaining path or
@@ -613,7 +947,7 @@ invalidates a local detour and leaves the rest of the path untouched.
 The turtle doesn't do the fixing. It reports "blocked at step 47"; the server
 runs the incremental update and sends a patched tail.
 
-### 4.7 Long distances — `HPA*`
+### 5.7 Long distances — `HPA*`
 
 For a 2,000-block journey, block-level `A*` expands an intractable number of
 nodes. Hierarchical Pathfinding `A*`:
@@ -633,9 +967,9 @@ variants exist and lose most of the benefit.
 
 ---
 
-## 5. Exploration and scheduling
+## 6. Exploration and scheduling
 
-### 5.1 One queue, one score
+### 6.1 One queue, one score
 
 Exploration and rescanning compete for the same turtles, so they must be
 comparable. Unify on **expected information gain**:
@@ -647,7 +981,7 @@ comparable. Unify on **expected information gain**:
 Same scale, so they sort together. A very stale base region can legitimately
 outrank a distant unexplored one.
 
-### 5.2 Frontier-based exploration
+### 6.2 Frontier-based exploration
 
 A **frontier** is a known cell adjacent to unknown. That's where information
 gain lives — scanning anywhere else reveals nothing. Cluster adjacent frontier
@@ -670,7 +1004,7 @@ utility = (information gain × priority weight) − travel cost
 **Incremental frontier update** — only recompute in regions that changed. A new
 scan creates frontiers at its edges and destroys the ones it consumed.
 
-### 5.3 Passive scanning is the main mechanism
+### 6.3 Passive scanning is the main mechanism
 
 **Radius 8 is free**, so turtles scan continuously while travelling and
 frequent areas stay fresh at zero cost. The heatmap and the traffic
@@ -682,7 +1016,7 @@ Paid scans (radius up to 16) are for deliberate exploration where the
 information gain justifies the fuel, and that cost belongs in the utility
 function.
 
-### 5.4 Protected zones need *more* rescanning, not less
+### 6.4 Protected zones need *more* rescanning, not less
 
 Low information gain (nothing to discover) but **high volatility** — the player
 changes them constantly without telling the server. The world model of the base
@@ -691,7 +1025,7 @@ gain in the priority function.
 
 ---
 
-## 6. Task system
+## 7. Task system
 
 **Turtles are workers, not roles.** A turtle isn't "a hauler"; it's a worker
 currently assigned a haul task. One queue holds heterogeneous work — explore
@@ -724,7 +1058,7 @@ arrives, and so refuelling has somewhere to happen.
 
 ---
 
-## 7. Heatmap
+## 8. Heatmap
 
 **Two separate numbers, because they answer different questions:**
 
@@ -751,9 +1085,9 @@ data problem.
 
 ---
 
-## 8. Networking and API
+## 9. Networking and API
 
-### 8.1 Naming (four things are all called "server")
+### 9.1 Naming (four things are all called "server")
 
 | Term                 | Meaning                                                   |
 |----------------------|-----------------------------------------------------------|
@@ -762,7 +1096,7 @@ data problem.
 | **backend**          | the Go program                                            |
 | **broker** / **hub** | the in-game computer relaying between turtles and backend |
 
-### 8.2 The API is the product
+### 9.2 The API is the product
 
 The Rust viewer is one consumer of the API, not the thing the API exists for.
 Every user action has to be expressible through it and every piece of state
@@ -770,7 +1104,7 @@ readable from it. Consequence: **design it for a client that doesn't exist
 yet**, and build/test it entirely with `.http` files and `curl` long before any
 Rust exists.
 
-### 8.3 Four surfaces, split by who's asking
+### 9.3 Four surfaces, split by who's asking
 
 | Surface       | Auth                                    | Purpose                        |
 |---------------|-----------------------------------------|--------------------------------|
@@ -815,7 +1149,7 @@ emits has nothing to inject into. A request-response API taking parameters and
 proxying live into the tailnet is an SSRF-shaped bridge from the internet into
 the private network, and a free DoS amplifier.
 
-### 8.4 Transport
+### 9.4 Transport
 
 **v0.1: direct HTTP, one turtle.** No broker. Add it when a real limit is hit,
 and you'll then know which limit and why.
@@ -845,7 +1179,7 @@ question.
 **websocket** is a persistent bidirectional connection. Server→turtle push
 needs the second.)*
 
-### 8.5 HTTP correctness rules
+### 9.5 HTTP correctness rules
 
 These are the ones that produce silent wrong behavior rather than errors:
 
@@ -873,7 +1207,7 @@ These are the ones that produce silent wrong behavior rather than errors:
 - Go 1.22+ mux supports `"POST /register"` patterns and `{id}` path values via
   `r.PathValue("id")` — deletes method checks and simplifies routing.
 
-### 8.6 Middleware
+### 9.6 Middleware
 
 The auth + method block repeats in every handler. Two options:
 
@@ -888,7 +1222,7 @@ The auth + method block repeats in every handler. Two options:
 Currently on the simple form. Convert once there are enough handlers to feel
 it.
 
-### 8.7 Errors across the package boundary
+### 9.7 Errors across the package boundary
 
 Validation lives in `turtles`, status codes live in `server`, and the domain
 must not know about HTTP. **Sentinel errors** bridge that:
@@ -908,7 +1242,7 @@ failure collapses to one status code.
 **Validate input before checking state**, or the error returned depends on
 unrelated map contents.
 
-### 8.8 Where request data goes
+### 9.8 Where request data goes
 
 | Location     | Access                                  | Use for                        |
 |--------------|-----------------------------------------|--------------------------------|
@@ -937,13 +1271,13 @@ format.
 
 ---
 
-## 9. AE2 storage subsystem
+## 10. AE2 storage subsystem
 
 Separate feature on the same backend: map the ME network, know total storage,
 periodically read each disk to find what's where, compute optimal item
 placement.
 
-### 9.1 Settled: full snapshot, no diff
+### 10.1 Settled: full snapshot, no diff
 
 The framing that resolves it isn't network-cost vs compute-cost — it's **what
 happens when a message is lost or a client restarts.**
@@ -973,7 +1307,7 @@ well under a second. The dreaded scenario was the diff, and it's been dropped.
 **Write the naive full-dump version, time it, print the string length** before
 designing any byte format.
 
-### 9.2 item identity
+### 10.2 item identity
 
 - **Counts need uint32 minimum, realistically uint64.** AE2 stores counts as
   64-bit longs; a single 64k cell of one item blows past uint16 alone.
@@ -982,6 +1316,9 @@ designing any byte format.
   damage" is a distinct entry from "diamond pickaxe."
 - The raw table includes ID, Name, count, and **all NBT**, which is where the
   size comes from for non-stackables.
+- **Stored via the item palette** (§4.4): identity is `(name, nbt hash)`, the
+  heavy NBT is kept once per unique item in `items.details`, and the network's
+  contents are `storage_items` rows of `(storage_id, item_id, count)`.
 
 **Enum source:** the mod provides an item registry dump of every item in the
 game across all mods. Run it on computer startup (chunkloaded, so a
@@ -1003,20 +1340,20 @@ passed it to.
 
 ---
 
-## 10. Viewer
+## 11. Viewer
 
 3D inspector for the cached world, a separate client against the backend API.
 Local; the backend is in the cloud; talks over websocket (Go transcodes, since
 the Rust side can't read gob).
 
-### 10.1 Architecture
+### 11.1 Architecture
 
 **Mesh once, then discard the blocks.** The client only displays the mesh.
 Split into mesh regions so a change remeshes one region, not the world — **32³
 is the common choice** (64³ = 262,144 blocks per remesh, long enough to want it
 off the main thread; 32³ trades more draw calls for cheaper remeshes).
 
-### 10.2 Rendering
+### 11.2 Rendering
 
 - 3D voxel view plus live turtle positions
 - **Tunnel visibility:** tunnels are their own block type, rendered as a
@@ -1033,7 +1370,7 @@ frustum culling is built into every engine; backface culling is a rasterizer
 setting. Occlusion culling is the only hard one and probably unnecessary at
 these sizes.
 
-### 10.3 Inspection
+### 11.3 Inspection
 
 - Filter/color blocks by type, TTL/staleness, scan age, importance,
   protected/breakable
@@ -1043,14 +1380,14 @@ these sizes.
   pathfinder: you stop reasoning about why it chose a route and look at it.
 - Highlight cached-vs-last-scanned discrepancies
 
-### 10.4 Turtle management
+### 11.4 Turtle management
 
 - Live per-turtle stats: fuel, inventory, task, queue depth
 - Parent/child and coalition relationships
 - Manual control: reboot, halt, reassign, manual movement
 - Task queue inspection and reordering
 
-### 10.5 Stack
+### 11.5 Stack
 
 Original plan was `wgpu` + `winit` + `egui` + `glam` + `bytemuck`, with Bevy
 rejected because ECS is a second architecture to learn.
@@ -1088,7 +1425,7 @@ default with an explicit control mode for anything that moves a turtle.
 
 ---
 
-## 11. Open questions
+## 12. Open questions
 
 **Design:**
 - Does the turtle claim its ID, or does the server assign one? Claiming means
@@ -1105,6 +1442,12 @@ default with an explicit control mode for anything that moves a turtle.
 - Whether hand-rolled RLE earns its place at all once zstd is in the stack.
 - Chunk-level connectivity caching for `HPA*` — compute on decode, or lazily?
 - Time-to-fuel exchange rate in the cost function.
+- When history moves out of `main.db` into `history.db` — a size or archiving
+  threshold, not a schedule.
+- Multi-block storages (double chests, AE2 spanning many blocks):
+  `storage_blocks` table, or a single representative position?
+- Chunk flush interval for `world.db`, and whether dirty storages flush on the
+  same timer or on chunk cooldown.
 
 **Verify before building on:**
 - `string.pack` / `string.unpack` availability in CC's Cobalt runtime
@@ -1125,7 +1468,7 @@ default with an explicit control mode for anything that moves a turtle.
 
 ---
 
-## 12. Testing philosophy
+## 13. Testing philosophy
 
 **Test where you cannot verify the answer by hand.** Not where the code is
 important, not where dependencies exist — where *looking at the output doesn't
@@ -1201,7 +1544,7 @@ LUT-vs-magic-bits question with numbers.
 
 ---
 
-## 13. Go conventions and libraries
+## 14. Go conventions and libraries
 
 ### Naming
 - **Error strings: lowercase, no punctuation.** They get wrapped, so yours ends
@@ -1232,6 +1575,8 @@ LUT-vs-magic-bits question with numbers.
 
 **Likely needed:**
 - `klauspost/compress` — pure-Go zstd. No cgo, so cross-compilation stays easy.
+- `modernc.org/sqlite` — pure-Go SQLite driver for `database/sql` (§4.10).
+  Chosen over `mattn/go-sqlite3` for the same no-cgo reason.
 - `gorilla/websocket` or `coder/websocket` — one of these for the broker
 - `joho/godotenv` — `.env` loading, for getting secrets out of source
 - `adrg/xdg` — full XDG spec; `os.UserConfigDir()` covers the simple case
@@ -1242,8 +1587,7 @@ LUT-vs-magic-bits question with numbers.
   `GET /turtles` returning the registry as JSON plus
   `watch -n1 'curl -s ... | jq'` is a live view with no code.
 - `spf13/cobra` — subcommands, once there's more than one
-- `jackc/pgx` — Postgres, if files stop being enough
-- `bbolt` / `badger` — embedded key-value stores
+- `jackc/pgx` — Postgres, if SQLite stops being enough (it won't at this scale)
 - `google.golang.org/grpc` + protobuf — one-source-of-truth codegen across
   languages, if websocket+JSON stops being enough for the Rust client
 - `minio/selfupdate` — self-updating binaries. Probably redundant: the Go
@@ -1255,7 +1599,7 @@ them beats learning a framework's abstraction over them.
 
 ---
 
-## 14. Rejected / deferred
+## 15. Rejected / deferred
 
 | Thing                                              | Status                       | Why                                                                                                                                                                                                                                                                                                                                                                                                                               |
 |----------------------------------------------------|------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
@@ -1283,7 +1627,15 @@ them beats learning a framework's abstraction over them.
 | Secondary indexes on the turtle registry           | **rejected**                 | scan with a predicate; ~1µs at fleet scale; indexes are caches with a consistency problem                                                                                                                                                                                                                                                                                                                                         |
 | Value map for the registry                         | **rejected**                 | forgotten write-backs on error branches, and lost updates under concurrency that a mutex can't fix because read-modify-write spans statements                                                                                                                                                                                                                                                                                     |
 | Anonymous functions for memory scoping             | **rejected**                 | escape analysis decides stack vs heap; closures can *cause* escape. Scope is visibility, heap is lifetime — unrelated                                                                                                                                                                                                                                                                                                             |
-| `bevy` rejection                                   | **reversed**                 | see §10.5                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| `bevy` rejection                                   | **reversed**                 | see §11.5                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| Anvil-style region files for chunks                | **deferred**                 | crash safety, free-space management, and an offset index are what a database already does. SQLite reads small blobs faster than the filesystem. Revisit only at many-GB worlds with measured bulk-read limits (§4.2)                                                                                                                                                                                                               |
+| One table per storage                              | **rejected**                 | tables are for kinds, rows are for instances. Never create tables at runtime (§4.4)                                                                                                                                                                                                                                                                                                                                               |
+| Storages in their own database file                | **rejected**                 | turtles reference storages; foreign keys and atomic transactions can't cross files. Size is not a reason to split (§4.3)                                                                                                                                                                                                                                                                                                         |
+| Storage pointers stored in chunks                  | **rejected**                 | the same fact in two places that will disagree. Storages own their position; the `chunk` index answers "storages near here" (§4.6)                                                                                                                                                                                                                                                                                               |
+| `bbolt` / `badger` as the store                    | **rejected**                 | key-value only — history and inventory totals need queries, so SQLite would be needed anyway. One system, not two                                                                                                                                                                                                                                                                                                                |
+| Time-series database for heatmap / history         | **rejected**                 | a table with a time index is enough at this scale                                                                                                                                                                                                                                                                                                                                                                                 |
+| `mattn/go-sqlite3`                                 | **rejected**                 | cgo; a C toolchain on Windows. `modernc.org/sqlite` is pure Go                                                                                                                                                                                                                                                                                                                                                                    |
+| Opening databases in `init()`                      | **rejected**                 | runs before `main`, can't return an error, runs in every test. Explicit `Open()` called from `main` (§4.10)                                                                                                                                                                                                                                                                                                                       |
 
 ### Create Aeronautics / physics vehicles — investigated, blocked on platform
 
@@ -1316,7 +1668,7 @@ earlier VS/Clockwork removal.
 
 ---
 
-## 15. References
+## 16. References
 
 - Baert, J. — *Morton encoding/decoding through bit interleaving:
   Implementations* —
@@ -1355,7 +1707,7 @@ inversion, BOLA, SSRF.
 
 ---
 
-## 16. Notes
+## 17. Notes
 - dynamic lights mod causes a light block to be placed on top of the
 player which shows up in scans and may interfere with pathfinding, 
 therefore it, and other such blocks must be filtered out before
