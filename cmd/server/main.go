@@ -5,6 +5,7 @@ import (
 	"os/signal"
 
 	"charm.land/log/v2"
+	_ "github.com/mistromy/ccmanager/internal/db"
 	"github.com/mistromy/ccmanager/internal/server"
 	"github.com/mistromy/ccmanager/internal/turtles"
 )
