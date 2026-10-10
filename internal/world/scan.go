@@ -6,8 +6,12 @@ import (
 )
 
 var (
+	mortonLUT [16]uint16
+)
+
+var (
 	worldPalette []string
-	chunks       = map[uint64]map[utils.UVector8]uint16{}
+	chunks       = map[uint64]*[4096]uint16{}
 )
 
 type ScanMsg struct {
@@ -43,10 +47,15 @@ func setBlock(blockType uint16, pos [3]int32) {
 	key := getKey(vectorCoords)
 	chunk, ok := chunks[key]
 	if !ok {
-		chunk = map[utils.UVector8]uint16{}
+		chunk = new([4096]uint16)
 		chunks[key] = chunk
 	}
-	chunk[inChunkPos(vectorCoords)] = blockType
+	chunk[mortonIndex(inChunkPos(vectorCoords))] = blockType
+}
+
+// mortonIndex returns the index of the morton order from the coordinates of a block in the chunk
+func mortonIndex(pos utils.UVector8) uint16 {
+	return mortonLUT[pos.X] | mortonLUT[pos.Y]<<1 | mortonLUT[pos.Z]<<2
 }
 
 func inChunkPos(worldPos utils.Vector32) utils.UVector8 {
