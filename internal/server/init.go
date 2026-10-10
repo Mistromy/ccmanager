@@ -13,7 +13,7 @@ import (
 var port uint16
 
 func OpenForm() (uint16, string, error) {
-	log.Info("Choose to port to run server")
+	log.Info("Choose port to run server")
 
 	var tempPort string
 	var password string
