@@ -46,6 +46,8 @@ func clientWs(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		case "getBlocks":
+			//TODO: implement the get world thing
+			//coords := string(msg[i+1:])
 
 		case "getTurtles":
 			sendTurtleData()

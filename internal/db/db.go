@@ -8,7 +8,8 @@ import (
 )
 
 var mainDB *sql.DB
-var worldDB *sql.DB
+
+//var worldDB *sql.DB
 
 func init() {
 	log.Info("Starting Databases...")
