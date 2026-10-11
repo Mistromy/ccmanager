@@ -3,8 +3,8 @@
   "id": "ccmanager",
   "version": "${version}",
   "name": "CCManager",
-  "description": "",
-  "authors": [],
+  "description": "Debug and interaction mod for Mist's ComputerCraft Fleet Manager",
+  "authors": ["Mistromy"],
   "contact": {},
   "license": "All-Rights-Reserved",
   "icon": "assets/ccmanager/icon.png",
@@ -15,6 +15,9 @@
     ],
     "main": [
       "tech.mista.ccmanager.Ccmanager"
+    ],
+    "modmenu": [
+      "tech.mista.ccmanager.client.config.ModMenuIntegration"
     ]
   },
   "mixins": [
@@ -24,6 +27,10 @@
     "fabricloader": ">=${loader_version}",
     "fabric-language-kotlin": ">=${kotlin_loader_version}",
     "fabric-api": "*",
-    "minecraft": "${minecraft_version}"
+    "minecraft": "${minecraft_version}",
+    "yet_another_config_lib_v3": ">=3.6.0"
+  },
+  "suggests": {
+    "modmenu": "*"
   }
 }
