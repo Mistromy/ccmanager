@@ -76,13 +76,20 @@ func GetTurtleList(w http.ResponseWriter, _ *http.Request) {
 }
 
 func updateTurtle(b []byte) {
-	var data turtles.Turtle
-	err := json.Unmarshal(b, &data) // decode json
+	var updatingID struct{ ID uint16 }
+	err := json.Unmarshal(b, &updatingID) // decode json
 	if err != nil {
 		return
 	}
 
-	err = turtles.Update(data.ID, data) // update pointer with value from data
+	currentP := turtles.Get(updatingID.ID)
+	current := *currentP
+	err = json.Unmarshal(b, &current)
+	if err != nil {
+		return
+	}
+
+	err = turtles.Update(updatingID.ID, current) // update pointer with value from data
 	if err != nil {
 		return
 	}

@@ -35,7 +35,7 @@ func clientWs(w http.ResponseWriter, r *http.Request) {
 			i = len(msg)
 		}
 		if string(msg[:i]) != "heartbeat" {
-			log.Debug("received", "msg", string(msg))
+			//log.Debug("received", "msg", string(msg))
 		} // log received messages
 		//err = conn.WriteMessage(websocket.TextMessage, []byte("ok"))
 		switch string(msg[:i]) {
@@ -59,7 +59,7 @@ func clientWs(w http.ResponseWriter, r *http.Request) {
 func sendTurtleData() {
 	turtleList := turtles.GetAllData()
 	data, err := json.Marshal(turtleList)
-	log.Debug(turtleList)
+	//log.Debug(turtleList)
 	if err != nil {
 		return
 	}

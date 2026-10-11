@@ -33,6 +33,7 @@ const (
 	East
 	South
 	West
+	Unknown
 )
 
 func (r Rot) String() string {
@@ -45,6 +46,8 @@ func (r Rot) String() string {
 		return "South"
 	case West:
 		return "West"
+	case Unknown:
+		return "Unknown"
 	}
 	return "invalid"
 }
