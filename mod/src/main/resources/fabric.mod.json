@@ -13,11 +13,8 @@
     "client": [
       "tech.mista.ccmanager.client.CcmanagerClient"
     ],
-    "main": [
-      "tech.mista.ccmanager.Ccmanager"
-    ],
     "modmenu": [
-      "tech.mista.ccmanager.client.config.ModMenuIntegration"
+      "tech.mista.ccmanager.client.ModMenuIntegration"
     ]
   },
   "mixins": [
