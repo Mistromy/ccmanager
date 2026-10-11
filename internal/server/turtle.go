@@ -87,4 +87,23 @@ func parseScan(b []byte) {
 		return
 	} // incorrect rotation
 	world.Scan(scan)
+	scanClientMSG := struct {
+		Id     uint16 `json:"id"`
+		X      int32  `json:"x"`
+		Y      int32  `json:"y"`
+		Z      int32  `json:"z"`
+		Radius uint8  `json:"radius"`
+	}{
+		Id:     scan.ID,
+		X:      scan.Pos[0],
+		Y:      scan.Pos[1],
+		Z:      scan.Pos[2],
+		Radius: scan.Radius,
+	}
+	data, err := json.Marshal(scanClientMSG)
+
+	err = clientConn.WriteMessage(websocket.TextMessage, append([]byte("scan "), data...))
+	if err != nil {
+		return
+	}
 }
