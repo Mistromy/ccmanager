@@ -16,14 +16,14 @@ local turns = { left = -1, right = 1 }
 
 -- unit step per facing. minecraft: north is -z, east is +x.
 local heading = {
-    [0] = { x = 0, z = -1 },
-    [1] = { x = 1, z = 0 },
-    [2] = { x = 0, z = 1 },
-    [3] = { x = -1, z = 0 },
+    [1] = { x = 0, z = -1 },
+    [2] = { x = 1, z = 0 },
+    [3] = { x = 0, z = 1 },
+    [4] = { x = -1, z = 0 },
 }
 
-local UNKNOWN = 4 -- matches turtles.Unknown in Go; 0-3 are north/east/south/west
-local rotFile = "rot"
+local UNKNOWN = 0 -- matches turtles.Unknown in Go; 1-4 are north/east/south/west
+local rotFile = "facing"
 
 local id = os.getComputerID()
 local name = os.getComputerLabel() or ("turtle-" .. id)
@@ -35,7 +35,7 @@ local function loadRot()
     if not f then return UNKNOWN end
     local v = tonumber(f.readAll())
     f.close()
-    if v and v >= 0 and v <= 3 then return v end
+    if v and v >= 1 and v <= 4 then return v end
     return UNKNOWN
 end
 
@@ -70,10 +70,10 @@ local function facingFrom(dx, dz, reversed)
     if reversed then
         dx, dz = -dx, -dz
     end
-    if dz < 0 then return 0 end
-    if dx > 0 then return 1 end
-    if dz > 0 then return 2 end
-    if dx < 0 then return 3 end
+    if dz < 0 then return 1 end
+    if dx > 0 then return 2 end
+    if dz > 0 then return 3 end
+    if dx < 0 then return 4 end
     return UNKNOWN
 end
 
@@ -153,7 +153,8 @@ while true do
 
                 if turns[cmd] then
                     if rot ~= UNKNOWN then
-                        setRot((rot + turns[cmd]) % 4)
+                        -- wrap within 1-4: shift to 0-3, turn, shift back
+                        setRot((rot - 1 + turns[cmd]) % 4 + 1)
                     end
                 elseif cmd == "up" then
                     y = y + 1

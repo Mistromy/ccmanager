@@ -89,13 +89,13 @@ func translate(b [3]int8, t [3]int32) [3]int32 {
 // rotate rotates blocks in the scan in 90 degree increments based on the turtles rotation
 func rotate(b [4]int8, rotation int8) [3]int8 {
 	switch rotation {
-	case 0:
-		return [3]int8{b[2], b[1], -b[0]}
 	case 1:
-		return [3]int8{b[0], b[1], b[2]}
+		return [3]int8{b[2], b[1], -b[0]}
 	case 2:
-		return [3]int8{-b[2], b[1], b[0]}
+		return [3]int8{b[0], b[1], b[2]}
 	case 3:
+		return [3]int8{-b[2], b[1], b[0]}
+	case 4:
 		return [3]int8{-b[0], b[1], -b[2]}
 	default:
 		return [3]int8{b[2], b[1], -b[0]}

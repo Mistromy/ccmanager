@@ -21,13 +21,16 @@ data class Turtle(
 /** A non-empty inventory slot. Empty slots are dropped while parsing. */
 data class Slot(val slot: Int, val name: String, val count: Int)
 
-/** Same order as the Go `Rot` enum, so the wire value is the ordinal. */
+/**
+ * Same order as the Go `Rot` enum after its leading `Unknown` (0), so the wire
+ * value is the ordinal + 1. Unknown and anything out of range map to null.
+ */
 enum class Facing {
     NORTH, EAST, SOUTH, WEST;
 
     val label: String get() = name.lowercase()
 
     companion object {
-        fun of(rot: Int?): Facing? = entries.getOrNull(rot ?: -1)
+        fun of(rot: Int?): Facing? = entries.getOrNull((rot ?: 0) - 1)
     }
 }

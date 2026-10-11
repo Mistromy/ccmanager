@@ -29,11 +29,11 @@ type Loc struct {
 type Rot uint8
 
 const (
-	North Rot = iota
+	Unknown Rot = iota
+	North
 	East
 	South
 	West
-	Unknown
 )
 
 func (r Rot) String() string {
