@@ -3,6 +3,7 @@ package tech.mista.ccmanager.client.link
 import net.minecraft.util.Util
 import tech.mista.ccmanager.client.config.CcmConfig
 import tech.mista.ccmanager.client.onClient
+import tech.mista.ccmanager.client.scan.Scans
 import tech.mista.ccmanager.client.turtle.TurtleStore
 import java.net.ConnectException
 import java.net.URI
@@ -68,6 +69,7 @@ object Link {
         drop()
         state = State.OFF
         TurtleStore.clear()
+        Scans.clear()
     }
 
     /** After a config save: reconnect with the new settings, unless deliberately off. */

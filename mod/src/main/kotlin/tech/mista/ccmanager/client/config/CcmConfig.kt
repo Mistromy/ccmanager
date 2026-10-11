@@ -25,7 +25,13 @@ class CcmConfig {
     @JvmField @SerialEntry var fillBoxes: Boolean = false
     @JvmField @SerialEntry var showTracers: Boolean = false
     @JvmField @SerialEntry var showNametags: Boolean = true
-    @JvmField @SerialEntry var throughWalls: Boolean = true
+    @JvmField @SerialEntry var showChunkBorders: Boolean = false
+    @JvmField @SerialEntry var showScans: Boolean = true
+    // drawn on top of terrain instead of hidden behind it. The hover panel always is.
+    @JvmField @SerialEntry var turtlesThroughWalls: Boolean = true // boxes and tracers
+    @JvmField @SerialEntry var nametagsThroughWalls: Boolean = true
+    @JvmField @SerialEntry var scansThroughWalls: Boolean = true
+    @JvmField @SerialEntry var chunksThroughWalls: Boolean = false
     @JvmField @SerialEntry var labelRange: Int = 32
     @JvmField @SerialEntry var hoverRange: Int = 32
     @JvmField @SerialEntry var showHud: Boolean = true

@@ -51,6 +51,8 @@ func clientWs(w http.ResponseWriter, r *http.Request) {
 
 		case "getTurtles":
 			sendTurtleData()
+		case "command":
+			parse(string(msg[i+1:]))
 		}
 
 	}

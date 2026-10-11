@@ -49,8 +49,18 @@ object ConfigScreen {
                 def.showTracers, { cfg.showTracers }, { cfg.showTracers = it }))
             .option(bool("Nametags", "Name above every turtle. The full panel shows on hover regardless",
                 def.showNametags, { cfg.showNametags }, { cfg.showNametags = it }))
-            .option(bool("Through walls", "Draw everything on top of terrain",
-                def.throughWalls, { cfg.throughWalls }, { cfg.throughWalls = it }))
+            .option(bool("Chunk borders", "Outline of the backend's 16x16x16 chunk you're in, with a grid on floor and ceiling",
+                def.showChunkBorders, { cfg.showChunkBorders }, { cfg.showChunkBorders = it }))
+            .option(bool("Scan areas", "Translucent cube over each turtle's last scan. /ccm clearscans removes them",
+                def.showScans, { cfg.showScans }, { cfg.showScans = it }))
+            .option(bool("Turtles through walls", "Boxes and tracers drawn on top of terrain",
+                def.turtlesThroughWalls, { cfg.turtlesThroughWalls }, { cfg.turtlesThroughWalls = it }))
+            .option(bool("Nametags through walls", "Nametags drawn on top of terrain. The hover panel always is",
+                def.nametagsThroughWalls, { cfg.nametagsThroughWalls }, { cfg.nametagsThroughWalls = it }))
+            .option(bool("Scan areas through walls", "Scan cubes drawn on top of terrain",
+                def.scansThroughWalls, { cfg.scansThroughWalls }, { cfg.scansThroughWalls = it }))
+            .option(bool("Chunk borders through walls", "Chunk outline and grid drawn on top of terrain",
+                def.chunksThroughWalls, { cfg.chunksThroughWalls }, { cfg.chunksThroughWalls = it }))
             .option(slider("Nametag range", "Nametags only show on turtles closer than this many blocks",
                 def.labelRange, { cfg.labelRange }, { cfg.labelRange = it }, 8, 256, 8))
             .option(slider("Hover range", "How far away you can point at a turtle to see its panel",

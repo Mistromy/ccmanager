@@ -11,6 +11,13 @@ object Colors {
     val TEXT = 0xFFFFFFFF.toInt()
     val DIM = 0xFFAAAAAA.toInt()
 
+    val CHUNK_EDGE = 0xFFFFFF00.toInt()
+    val CHUNK_GRID = 0x80FFFF00.toInt()
+    val CHUNK_GRID_MAJOR = 0xFF00AAAA.toInt()
+
+    val SCAN_EDGE = 0xFF55AAFF.toInt()
+    val SCAN_FILL = 0x2055AAFF
+
     val PANEL_BG = 0xA0000000.toInt()
 
     /** The same translucent black vanilla nametags use (Accessibility > Text Background Opacity). */

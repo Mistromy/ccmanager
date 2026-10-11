@@ -2,6 +2,7 @@ package tech.mista.ccmanager.client.link
 
 import tech.mista.ccmanager.client.log
 import tech.mista.ccmanager.client.onClient
+import tech.mista.ccmanager.client.scan.Scans
 import tech.mista.ccmanager.client.turtle.TurtleJson
 import tech.mista.ccmanager.client.turtle.TurtleStore
 
@@ -22,6 +23,10 @@ object Messages {
                 "turtles" -> {
                     val list = TurtleJson.parseList(payload)
                     onClient { TurtleStore.replaceAll(list) }
+                }
+                "scan" -> {
+                    val area = Scans.parse(payload)
+                    onClient { Scans.put(area) }
                 }
                 "list" -> {} // reply to getIDs, which we never send; the server can still send it unprompted
                 else -> log.debug("unhandled message: {}", verb)
