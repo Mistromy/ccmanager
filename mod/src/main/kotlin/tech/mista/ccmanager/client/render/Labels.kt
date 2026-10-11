@@ -23,15 +23,21 @@ object Labels {
     // one is drawn at points of its choosing.
     private val buffers = VertexConsumerProvider.immediate(BufferBuilder(1536))
 
-    private const val PIXEL = 0.02f   // one text pixel in blocks; vanilla nametags use 0.025
-    private const val ANCHOR = 1.55   // bottom of the label, in blocks above the turtle. CC's own label sits below this
+    private const val PIXEL = 0.02f // one text pixel in blocks; vanilla nametags use 0.025
 
-    fun draw(matrices: MatrixStack, camera: Camera, t: Turtle, lines: List<Line>, background: Int, throughWalls: Boolean) {
+    // Bottom of the label, in blocks above the turtle's base. The nametag sits
+    // where CC draws its own label, which only shows while you look at the
+    // turtle - and then the panel replaces our nametag anyway, so there's only
+    // ever one name there. The panel sits higher, above CC's label.
+    const val NAMETAG_ANCHOR = 0.9
+    const val PANEL_ANCHOR = 1.25
+
+    fun draw(matrices: MatrixStack, camera: Camera, t: Turtle, lines: List<Line>, anchor: Double, background: Int, throughWalls: Boolean) {
         val tr = MinecraftClient.getInstance().textRenderer
         val cam = camera.pos
 
         matrices.push()
-        matrices.translate(t.x + 0.5 - cam.x, t.y + ANCHOR - cam.y, t.z + 0.5 - cam.z)
+        matrices.translate(t.x + 0.5 - cam.x, t.y + anchor - cam.y, t.z + 0.5 - cam.z)
         matrices.multiply(camera.rotation)
         matrices.scale(-PIXEL, -PIXEL, PIXEL) // text y points down and x would be mirrored otherwise
         val m = matrices.peek().positionMatrix

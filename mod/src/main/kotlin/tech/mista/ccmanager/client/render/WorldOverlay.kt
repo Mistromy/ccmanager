@@ -52,11 +52,15 @@ object WorldOverlay {
             turtles
                 .filter { it.id != hovered?.id && it.center().squaredDistanceTo(cam) <= rangeSq }
                 .sortedByDescending { it.center().squaredDistanceTo(cam) }
-                .forEach { Labels.draw(matrices, camera, it, TurtleText.nametag(it), Colors.nametagBackground(), cfg.throughWalls) }
+                .forEach {
+                    Labels.draw(matrices, camera, it, TurtleText.nametag(it), Labels.NAMETAG_ANCHOR,
+                        Colors.nametagBackground(), cfg.throughWalls)
+                }
         }
         // always through walls: you only get it by pointing at the turtle on purpose
         if (hovered != null) {
-            Labels.draw(matrices, camera, hovered, TurtleText.panel(hovered), Colors.PANEL_BG, throughWalls = true)
+            Labels.draw(matrices, camera, hovered, TurtleText.panel(hovered), Labels.PANEL_ANCHOR,
+                Colors.PANEL_BG, throughWalls = true)
         }
     }
 }
