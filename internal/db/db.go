@@ -9,7 +9,7 @@ import (
 
 var mainDB *sql.DB
 
-//var worldDB *sql.DB
+var worldDB *sql.DB
 
 func init() {
 	log.Info("Starting Databases...")
@@ -20,11 +20,11 @@ func init() {
 		return
 	}
 	log.Info("Starting World Database (2/2)")
-	//err = startWorldDB()
-	//if err != nil {
-	//	log.Error("start world database", "error", err)
-	//	return
-	//}
+	err = startWorldDB()
+	if err != nil {
+		log.Error("start world database", "error", err)
+		return
+	}
 	log.Info("All Databases Running.")
 }
 
@@ -45,22 +45,22 @@ func startMainDB() error {
 	return nil
 }
 
-//func startWorldDB() error {
-//	var err error
-//	worldDB, err = sql.Open("sqlite", "world.db")
-//	if err != nil {
-//		return err
-//	}
-//	err = worldDB.Ping()
-//	if err != nil {
-//		return err
-//	}
-//	err = createWorldTables()
-//	if err != nil {
-//		return err
-//	}
-//	return nil
-//}
+func startWorldDB() error {
+	var err error
+	worldDB, err = sql.Open("sqlite", "world.db")
+	if err != nil {
+		return err
+	}
+	err = worldDB.Ping()
+	if err != nil {
+		return err
+	}
+	err = createWorldTables()
+	if err != nil {
+		return err
+	}
+	return nil
+}
 
 func createMainTables() error {
 	_, err := mainDB.Exec(`CREATE TABLE IF NOT EXISTS turtles (
@@ -69,7 +69,7 @@ func createMainTables() error {
     x     INTEGER NOT NULL DEFAULT 0,
     y     INTEGER NOT NULL DEFAULT 0,
     z     INTEGER NOT NULL DEFAULT 0,
-    rot   INTEGER NOT NULL DEFAULT 0 CHECK (rot BETWEEN 0 AND 3),
+    rot   INTEGER NOT NULL DEFAULT 0 CHECK (rot BETWEEN 0 AND 4),
     fuel  INTEGER NOT NULL DEFAULT 0
 ) STRICT;
 
@@ -105,11 +105,21 @@ CREATE TABLE IF NOT EXISTS storage_items (       -- AE2 / pooled networks
 	return nil
 }
 
-//func createWorldTables() error {
-//	_, err := worldDB.Exec(`CREATE TABLE IF NOT EXISTS storage
-//`)
-//	if err != nil {
-//		return err
-//	}
-//	return nil
-//}
+func createWorldTables() error {
+	_, err := worldDB.Exec(`CREATE TABLE IF NOT EXISTS chunks
+(
+    key         INTEGER PRIMARY KEY,
+    data        BLOB NOT NULL,
+    updated_at  INTEGER NOT NULL DEFAULT 0 
+)STRICT;
+
+CREATE TABLE IF NOT EXISTS worldPalette
+(
+    id INTEGER PRIMARY KEY,
+    name TEXT NOT NULL UNIQUE
+)STRICT;`)
+	if err != nil {
+		return err
+	}
+	return nil
+}
