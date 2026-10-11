@@ -30,6 +30,10 @@ java {
 
 repositories {
     maven("https://api.modrinth.com/maven") { name = "Modrinth" }
+    // YACL's own maven: unlike Modrinth's, it publishes a pom listing YACL's dependencies
+    maven("https://maven.isxander.dev/releases") { name = "Xander" }
+    // YACL reads json5 configs through Quilt's parser library, which lives here
+    maven("https://maven.quiltmc.org/repository/release/") { name = "Quilt" }
     // Add repositories to retrieve artifacts from in here.
     // You should only use this when depending on other mods because
     // Loom adds the essential maven repositories to download Minecraft and libraries from automatically.
@@ -46,6 +50,11 @@ dependencies {
 
     modImplementation("net.fabricmc.fabric-api:fabric-api:${project.property("fabric_version")}")
 
+    // config library: our code calls it, so players need it installed (see fabric.mod.json "depends")
+    modImplementation("dev.isxander:yet-another-config-lib:3.6.6+1.20.1-fabric")
+
+    // optional integration: compile against its api, present in the dev client, not required by players
+    modCompileOnly("maven.modrinth:modmenu:7.2.2")
     modLocalRuntime("maven.modrinth:modmenu:7.2.2")
 }
 

@@ -2,42 +2,43 @@ package tech.mista.ccmanager.client
 
 import net.fabricmc.api.ClientModInitializer
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback
-import org.slf4j.LoggerFactory
-import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager.literal
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents
+import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents
 import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents
-import net.minecraft.client.MinecraftClient
-import net.minecraft.client.render.RenderLayer
-import net.minecraft.client.render.WorldRenderer
-import net.minecraft.text.Text
-import net.minecraft.util.math.Box
+import tech.mista.ccmanager.client.command.CcmCommand
+import tech.mista.ccmanager.client.config.CcmConfig
+import tech.mista.ccmanager.client.link.Link
+import tech.mista.ccmanager.client.render.StatusHud
+import tech.mista.ccmanager.client.render.WorldOverlay
 
+/**
+ * Entrypoint, and the only place hooks into the game are registered, so this
+ * file is the whole map of when anything in the mod runs.
+ */
 class CcmanagerClient : ClientModInitializer {
-    private val log = LoggerFactory.getLogger("ccmanager")
 
     override fun onInitializeClient() {
-        log.info("CCManager Loaded")
+        CcmConfig.HANDLER.load()
 
-        ClientCommandRegistrationCallback.EVENT.register { dispatcher, _ ->
-            dispatcher.register(literal("ccm").executes { ctx ->
-                ctx.source.sendFeedback(Text.literal("Hello, World!"))
-                1
-            })
+        // joining or leaving a world/server. Wrapped in onClient because
+        // these can fire on the network thread.
+        ClientPlayConnectionEvents.JOIN.register { _, _, _ ->
+            onClient { if (CcmConfig.get().autoConnect) Link.start() }
         }
-        HudRenderCallback.EVENT.register { draw, _ ->
-            draw.drawTextWithShadow(MinecraftClient.getInstance().textRenderer, "ccmanager", 4, 4, 0xffffff)
+        ClientPlayConnectionEvents.DISCONNECT.register { _, _ ->
+            onClient { Link.stop() }
         }
-        WorldRenderEvents.AFTER_ENTITIES.register { ctx ->
-            val consumers = ctx.consumers() ?: return@register
-            val cam = ctx.camera().pos
-            val matrices = ctx.matrixStack()
-            matrices.push()
-            matrices.translate(-cam.x, -cam.y, -cam.z) // world coords -> camera-relative
-            WorldRenderer.drawBox(
-                matrices, consumers.getBuffer(RenderLayer.getLines()),
-                Box(0.0, 76.0, 0.0, 1.0, 77.0, 1.0), 1f, 0f, 0f, 1f,
-            )
-            matrices.pop()
-        }
+
+        // 20 times a second: reconnects and polling
+        ClientTickEvents.END_CLIENT_TICK.register { Link.tick() }
+
+        // every frame: after the world is drawn, so our overlay goes on top
+        WorldRenderEvents.LAST.register(WorldOverlay::render)
+        HudRenderCallback.EVENT.register { draw, _ -> StatusHud.render(draw) }
+
+        ClientCommandRegistrationCallback.EVENT.register { dispatcher, _ -> CcmCommand.register(dispatcher) }
+
+        log.info("CCManager loaded")
     }
 }
