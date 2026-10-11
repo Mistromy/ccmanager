@@ -22,9 +22,34 @@ local heading = {
     [3] = { x = -1, z = 0 },
 }
 
+local UNKNOWN = 4 -- matches turtles.Unknown in Go; 0-3 are north/east/south/west
+local rotFile = "rot"
+
 local id = os.getComputerID()
 local name = os.getComputerLabel() or ("turtle-" .. id)
-local rot = -1 -- unknown until a forward/back resolves it
+
+-- facing survives reboots on disk. anything unreadable means unknown, which
+-- the next forward/back resolves with a two-position gps fix.
+local function loadRot()
+    local f = fs.open(rotFile, "r")
+    if not f then return UNKNOWN end
+    local v = tonumber(f.readAll())
+    f.close()
+    if v and v >= 0 and v <= 3 then return v end
+    return UNKNOWN
+end
+
+local rot = loadRot()
+
+local function setRot(v)
+    if v == rot then return end
+    rot = v
+    local f = fs.open(rotFile, "w")
+    if f then
+        f.write(tostring(v))
+        f.close()
+    end
+end
 
 local modem = peripheral.find("modem")
 if not modem then
@@ -49,30 +74,23 @@ local function facingFrom(dx, dz, reversed)
     if dx > 0 then return 1 end
     if dz > 0 then return 2 end
     if dx < 0 then return 3 end
-    return -1
+    return UNKNOWN
 end
 
+-- always the full state, so the server never sees a partial turtle.
 local function state()
     return textutils.serialiseJSON({
         ID = id,
+        Name = name,
         Loc = { X = x, Y = y, Z = z, Rot = rot },
+        Fuel = turtle.getFuelLevel(),
     })
 end
 
 local register = textutils.serialiseJSON({ ID = id, Name = name })
-local update = textutils.serialiseJSON({
-    ID = id,
-    Name = name,
-    Loc = {
-        X = x,
-        Y = y,
-        Z = z
-    },
-    Fuel = turtle.getFuelLevel(),
-})
 
 modem.transmit(brokerChannel, id, "register " .. register)
-modem.transmit(brokerChannel, id, "update " .. update)
+modem.transmit(brokerChannel, id, "update " .. state())
 
 modem.open(id)
 modem.open(allChannel)
@@ -110,7 +128,7 @@ while true do
             -- two-position facing fix: only on the first xz move, and only
             -- while rot is unknown. after that, turns keep it up to date and
             -- position is dead reckoned.
-            local fixing = rot < 0 and (cmd == "forward" or cmd == "back")
+            local fixing = rot == UNKNOWN and (cmd == "forward" or cmd == "back")
             local px, pz
             if fixing then
                 px, _, pz = gps.locate()
@@ -134,8 +152,8 @@ while true do
                 end
 
                 if turns[cmd] then
-                    if rot >= 0 then
-                        rot = (rot + turns[cmd]) % 4
+                    if rot ~= UNKNOWN then
+                        setRot((rot + turns[cmd]) % 4)
                     end
                 elseif cmd == "up" then
                     y = y + 1
@@ -145,11 +163,11 @@ while true do
                     -- the fix re-establishes position and facing together
                     local nx, ny, nz = gps.locate()
                     if nx then
-                        rot = facingFrom(nx - px, nz - pz, cmd == "back")
+                        setRot(facingFrom(nx - px, nz - pz, cmd == "back"))
                         x, y, z = nx, ny, nz
                     end
                     fixing = false
-                elseif rot >= 0 then
+                elseif rot ~= UNKNOWN then
                     local h = heading[rot]
                     local sign = (cmd == "back") and -1 or 1
                     x = x + h.x * sign
