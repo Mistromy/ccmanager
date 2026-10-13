@@ -82,7 +82,7 @@ func parseScan(b []byte) {
 		log.Debug("bad json", "error", err)
 		return
 	} // incorrect json
-	if scan.Rot == 0 {
+	if scan.Rot == 0 || scan.Rot > 4 {
 		log.Error("invalid rot", "rot", scan.Rot)
 		return
 	} // incorrect rotation
