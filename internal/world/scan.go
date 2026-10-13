@@ -7,6 +7,7 @@ import (
 	"charm.land/log/v2"
 	"github.com/mistromy/ccmanager/internal/db"
 	"github.com/mistromy/ccmanager/internal/utils"
+	"golang.org/x/exp/slices"
 )
 
 var (
@@ -39,14 +40,7 @@ func Scan(msg ScanMsg) {
 		log.Debug("added block:", "index", i, "block", block)
 	}
 
-	center := utils.Vector32{
-		X: msg.Pos[0],
-		Y: msg.Pos[1],
-		Z: msg.Pos[2],
-	}
-	corners := findScanExtremes(center, msg.Radius)
-
-	err := saveScanToDB(corners)
+	err := saveScan(msg)
 	if err != nil {
 		log.Error("Save chunk to DB", "error", err)
 		log.Warn("Scan recorded but failed to save to DB")
@@ -55,8 +49,20 @@ func Scan(msg ScanMsg) {
 	log.Info("Scan successful")
 }
 
-func saveScanToDB(corners [8]utils.Vector32) error {
-	chunksInScan := findChunksInScan(corners)
+func saveScan(msg ScanMsg) error {
+	center := utils.Vector32{
+		X: msg.Pos[0],
+		Y: msg.Pos[1],
+		Z: msg.Pos[2],
+	}
+	err := saveScanToDB(findScanChunks(center, msg.Radius))
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func saveScanToDB(chunksInScan []uint64) error {
 	for _, c := range chunksInScan {
 		chunk := *chunks[c]
 		chunkBytes := bytes.Buffer{}
@@ -72,55 +78,26 @@ func saveScanToDB(corners [8]utils.Vector32) error {
 	return nil
 }
 
-func findChunksInScan(corners [8]utils.Vector32) []uint64 {
-	keys := make([]uint64, 0, 8)
-CornerLoop:
-	for _, c := range corners {
-		key := getKey(c)
-		for _, k := range keys {
-			if k == key {
-				continue CornerLoop
+func findScanChunks(center utils.Vector32, radius uint8) []uint64 {
+	keys := make([]uint64, 0, 27)
+	var y int32
+	var x int32
+	var z int32
+	for y = -1; y <= 1; y++ {
+		for x = -1; x <= 1; x++ {
+			for z = -1; z <= 1; z++ {
+				var chunk utils.Vector32
+				chunk.Y = center.Y + int32(radius)*y
+				chunk.X = center.X + int32(radius)*x
+				chunk.Z = center.Z + int32(radius)*z
+				key := getKey(chunk)
+				if !slices.Contains(keys, key) {
+					keys = append(keys, key)
+				}
 			}
 		}
-		keys = append(keys, key)
 	}
 	return keys
-}
-
-// findScanExtremes finds the 8 corners of a scan to see if they're in the same chunk.
-func findScanExtremes(center utils.Vector32, radius uint8) (corners [8]utils.Vector32) {
-	corners[0].X = center.X + int32(radius)
-	corners[0].Y = center.Y + int32(radius)
-	corners[0].Z = center.Z + int32(radius)
-
-	corners[1].X = center.X - int32(radius)
-	corners[1].Y = center.Y + int32(radius)
-	corners[1].Z = center.Z + int32(radius)
-
-	corners[2].X = center.X + int32(radius)
-	corners[2].Y = center.Y + int32(radius)
-	corners[2].Z = center.Z - int32(radius)
-
-	corners[3].X = center.X - int32(radius)
-	corners[3].Y = center.Y + int32(radius)
-	corners[3].Z = center.Z - int32(radius)
-
-	corners[4].X = center.X + int32(radius)
-	corners[4].Y = center.Y - int32(radius)
-	corners[4].Z = center.Z + int32(radius)
-
-	corners[5].X = center.X - int32(radius)
-	corners[5].Y = center.Y - int32(radius)
-	corners[5].Z = center.Z + int32(radius)
-
-	corners[6].X = center.X + int32(radius)
-	corners[6].Y = center.Y - int32(radius)
-	corners[6].Z = center.Z - int32(radius)
-
-	corners[7].X = center.X - int32(radius)
-	corners[7].Y = center.Y - int32(radius)
-	corners[7].Z = center.Z - int32(radius)
-	return corners
 }
 
 // convert returns final processed block ready for appending to the world
