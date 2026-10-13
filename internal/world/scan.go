@@ -30,9 +30,9 @@ type ScanMsg struct {
 
 func Scan(msg ScanMsg) {
 	paletteDict := makePalette(msg)
+	writeAir(msg)
 	for _, b := range msg.Blocks {
 		coords, idMap := convert(b, msg.Pos, msg.Rot, paletteDict)
-		// TODO calculateHashMap and in chunk coords and then write with Morton lut
 		setBlock(idMap, coords)
 		log.Debug("processed scan", "coords", coords, "idMap", idMap)
 	}
@@ -47,6 +47,18 @@ func Scan(msg ScanMsg) {
 		return
 	}
 	log.Info("Scan successful")
+}
+
+// replace full scan with air because turtles dont return air and then air is indistinguishable from unknown -- bad for pathfinder
+func writeAir(msg ScanMsg) {
+	r := int32(msg.Radius)
+	for dx := -r; dx <= r; dx++ {
+		for dy := -r; dy <= r; dy++ {
+			for dz := -r; dz <= r; dz++ {
+				setBlock(1, [3]int32{msg.Pos[0] + dx, msg.Pos[1] + dy, msg.Pos[2] + dz})
+			}
+		}
+	}
 }
 
 func saveScan(msg ScanMsg) error {

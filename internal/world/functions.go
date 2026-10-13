@@ -23,6 +23,7 @@ func GetBlock(position utils.Vector32) (string, error) {
 func init() {
 	generateMortonLUT()
 	worldPalette = append(worldPalette, "unknown")
+	worldPalette = append(worldPalette, "minecraft:air")
 	loadWorld()
 }
 
