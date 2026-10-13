@@ -27,6 +27,15 @@ func init() {
 }
 
 func loadWorld() {
+	log.Debug("Loading Palette")
+	var err error
+	worldPalette, err = db.LoadPalette()
+	if err != nil {
+		log.Error("loading world palette", "error", err)
+		return
+	}
+
+	log.Debug("Loading chunks")
 	chunksAsBytes, err := db.LoadAllChunks()
 	if err != nil {
 		log.Error("", "error", err)
@@ -49,9 +58,9 @@ func loadWorld() {
 }
 
 func generateMortonLUT() {
-	for v := 0; v < 16; v++ {
+	for v := range 16 {
 		var out uint16
-		for i := 0; i < 4; i++ {
+		for i := range 4 {
 			if v>>i&1 == 1 {
 				out |= 1 << (3 * i)
 			}

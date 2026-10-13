@@ -16,6 +16,28 @@ ON CONFLICT (key) DO UPDATE SET
 	return nil
 }
 
+func LoadPalette() ([]string, error) {
+	palette := make([]string, 0)
+	query, err := worldDB.Query(`SELECT name FROM worldPalette ORDER BY id`)
+	if err != nil {
+		return nil, err
+	}
+	defer query.Close()
+	for query.Next() {
+		var block string
+		err = query.Scan(&block)
+		if err != nil {
+			return nil, err
+		}
+		palette = append(palette, block)
+	}
+	err = query.Err()
+	if err != nil {
+		return nil, err
+	}
+	return palette, nil
+}
+
 func SavePalette(palette []string) error {
 	tx, err := worldDB.Begin()
 	if err != nil {
