@@ -1,8 +1,12 @@
 package world
 
 import (
+	"bytes"
+	"encoding/binary"
 	"errors"
 
+	"charm.land/log/v2"
+	"github.com/mistromy/ccmanager/internal/db"
 	"github.com/mistromy/ccmanager/internal/utils"
 )
 
@@ -19,7 +23,29 @@ func GetBlock(position utils.Vector32) (string, error) {
 func init() {
 	generateMortonLUT()
 	worldPalette = append(worldPalette, "unknown")
+	loadWorld()
+}
 
+func loadWorld() {
+	chunksAsBytes, err := db.LoadAllChunks()
+	if err != nil {
+		log.Error("", "error", err)
+		return
+	}
+	for key, chunkBytes := range chunksAsBytes {
+		if len(chunkBytes) != 8192 {
+			log.Warn("Wrong Chunk Length. skipping chunk...", "key", key)
+			continue
+		}
+		chunk := new([4096]uint16)
+		err := binary.Read(bytes.NewReader(chunkBytes), binary.LittleEndian, chunk)
+		if err != nil {
+			log.Warn("Error reading chunk", "key", key)
+			return
+		}
+		chunks[key] = chunk
+	}
+	log.Info("Loaded world")
 }
 
 func generateMortonLUT() {

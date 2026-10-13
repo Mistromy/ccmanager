@@ -1,6 +1,8 @@
 package db
 
-import "time"
+import (
+	"time"
+)
 
 func SaveChunk(key uint64, chunk []byte) error {
 	_, err := worldDB.Exec(`INSERT INTO chunks (key, data, updated_at)
@@ -12,4 +14,33 @@ ON CONFLICT (key) DO UPDATE SET
 		return err
 	}
 	return nil
+}
+
+func LoadAllChunks() (map[uint64][]byte, error) {
+	query, err := worldDB.Query(`SELECT key, data FROM chunks`)
+	defer query.Close()
+	if err != nil {
+		return nil, err
+	}
+	chunks := make(map[uint64][]byte)
+	for query.Next() {
+		var key uint64
+		var chunkBytes []byte
+		_ = query.Scan(&key, &chunkBytes)
+		chunks[key] = chunkBytes
+	}
+	err = query.Err()
+	if err != nil {
+		return nil, err
+	}
+	return chunks, nil
+}
+
+func getChunk(key uint64) (chunk []byte, err error) {
+	row := worldDB.QueryRow(`SELECT data FROM chunks where KEY = ?`, key)
+	err = row.Scan(&chunk)
+	if err != nil {
+		return nil, err
+	}
+	return chunk, nil
 }
