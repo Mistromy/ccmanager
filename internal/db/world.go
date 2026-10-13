@@ -16,6 +16,26 @@ ON CONFLICT (key) DO UPDATE SET
 	return nil
 }
 
+func SavePalette(palette []string) error {
+	tx, err := worldDB.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	for id, name := range palette {
+		_, err = tx.Exec(`INSERT OR IGNORE INTO worldPalette (id, name)
+       VALUES (?, ?)`, id, name)
+		if err != nil {
+			return err
+		}
+	}
+	err = tx.Commit()
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func LoadAllChunks() (map[uint64][]byte, error) {
 	query, err := worldDB.Query(`SELECT key, data FROM chunks`)
 	defer query.Close()

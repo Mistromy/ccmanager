@@ -63,6 +63,10 @@ func saveScan(msg ScanMsg) error {
 }
 
 func saveScanToDB(chunksInScan []uint64) error {
+	err := db.SavePalette(worldPalette)
+	if err != nil {
+		return err
+	}
 	for _, c := range chunksInScan {
 		chunk := *chunks[c]
 		chunkBytes := bytes.Buffer{}
