@@ -1,6 +1,7 @@
 local brokerChannel = 0
 local allChannel = 65533 -- 65534 is GPS, 65535 is rednet broadcast. both are CC's.
-local maxRepeat = 16
+local maxRepeat = 255 -- fits the planned one-byte operand
+local maxCommands = 64 -- per sequence message
 local maxRadius = 16
 
 local moves = {
@@ -107,6 +108,87 @@ local function pingLoop()
     end
 end
 
+-- one move command, repeated count times. returns how many steps completed
+-- and, if it stopped early, why.
+local function runMove(cmd, count)
+    local move = moves[cmd]
+
+    -- two-position facing fix: only on the first xz move, and only while rot
+    -- is unknown. after that, turns keep it up to date and position is dead
+    -- reckoned.
+    local fixing = rot == UNKNOWN and (cmd == "forward" or cmd == "back")
+    local px, pz
+    if fixing then
+        px, _, pz = gps.locate()
+        fixing = px ~= nil
+    end
+
+    for step = 1, count do
+        local ok, reason = move()
+        if not ok then
+            -- an empty tank reports as obstruction, so say what it actually
+            -- is. turns cost no fuel and cannot hit this.
+            if turtle.getFuelLevel() == 0 then
+                reason = "out of fuel"
+            end
+            return step - 1, tostring(reason)
+        end
+
+        if turns[cmd] then
+            if rot ~= UNKNOWN then
+                -- wrap within 1-4: shift to 0-3, turn, shift back
+                setRot((rot - 1 + turns[cmd]) % 4 + 1)
+            end
+        elseif cmd == "up" then
+            y = y + 1
+        elseif cmd == "down" then
+            y = y - 1
+        elseif fixing then
+            -- the fix re-establishes position and facing together
+            local nx, ny, nz = gps.locate()
+            if nx then
+                setRot(facingFrom(nx - px, nz - pz, cmd == "back"))
+                x, y, z = nx, ny, nz
+            end
+            fixing = false
+        elseif rot ~= UNKNOWN then
+            local h = heading[rot]
+            local sign = (cmd == "back") and -1 or 1
+            x = x + h.x * sign
+            z = z + h.z * sign
+        end
+    end
+    return count
+end
+
+-- "forward 2 up 2 right forward 5" -> list of {cmd, count}. a count is
+-- optional and defaults to 1. the whole message is checked before anything
+-- runs, so a typo never leaves the turtle half way through a sequence.
+-- returns the list, or nil plus the 1-based index, the bad word and why.
+local function parseSequence(words)
+    local seq = {}
+    local i = 1
+    while i <= #words do
+        local cmd = words[i]
+        if not moves[cmd] then
+            return nil, #seq + 1, cmd, "unknown command"
+        end
+        local count = tonumber(words[i + 1])
+        if count then
+            i = i + 2
+        else
+            count = 1
+            i = i + 1
+        end
+        count = math.min(math.max(math.floor(count), 1), maxRepeat)
+        seq[#seq + 1] = { cmd = cmd, count = count }
+        if #seq > maxCommands then
+            return nil, #seq, cmd, "too many commands"
+        end
+    end
+    return seq
+end
+
 local function commandLoop()
 while true do
     local _, _, _, replyChannel, message = os.pullEvent("modem_message")
@@ -119,60 +201,25 @@ while true do
         end
 
         local cmd = words[1]
-        local move = moves[cmd]
 
-        if move then
-            local count = math.floor(tonumber(words[2]) or 1)
-            count = math.min(math.max(count, 1), maxRepeat)
-
-            -- two-position facing fix: only on the first xz move, and only
-            -- while rot is unknown. after that, turns keep it up to date and
-            -- position is dead reckoned.
-            local fixing = rot == UNKNOWN and (cmd == "forward" or cmd == "back")
-            local px, pz
-            if fixing then
-                px, _, pz = gps.locate()
-                fixing = px ~= nil
-            end
-
-            for step = 1, count do
-                local ok, reason = move()
-                if not ok then
-                    -- an empty tank reports as obstruction, so say what it
-                    -- actually is. turns cost no fuel and cannot hit this.
-                    if turtle.getFuelLevel() == 0 then
-                        reason = "out of fuel"
+        if moves[cmd] then
+            -- a sequence of moves. a single "forward 3" is a sequence of one.
+            -- on failure: "<id> fail <index> <cmd> <completed> <reason>",
+            -- index is 1-based, completed is how many repeats of that command
+            -- succeeded. the update with the full state always follows, so
+            -- the server never has to work out the position itself.
+            local seq, badIndex, badWord, why = parseSequence(words)
+            if not seq then
+                modem.transmit(replyChannel, id, id .. " fail " .. badIndex
+                    .. " " .. tostring(badWord) .. " 0 " .. why)
+            else
+                for index, c in ipairs(seq) do
+                    local done, reason = runMove(c.cmd, c.count)
+                    if reason then
+                        modem.transmit(replyChannel, id, id .. " fail " .. index
+                            .. " " .. c.cmd .. " " .. done .. " " .. reason)
+                        break
                     end
-                    -- how many completed, not just that it failed. the server
-                    -- tracks position by applying successful moves, so without
-                    -- the count it cannot know where the turtle stopped.
-                    modem.transmit(replyChannel, id,
-                        id .. " " .. cmd .. " " .. (step - 1) .. " " .. tostring(reason))
-                    break
-                end
-
-                if turns[cmd] then
-                    if rot ~= UNKNOWN then
-                        -- wrap within 1-4: shift to 0-3, turn, shift back
-                        setRot((rot - 1 + turns[cmd]) % 4 + 1)
-                    end
-                elseif cmd == "up" then
-                    y = y + 1
-                elseif cmd == "down" then
-                    y = y - 1
-                elseif fixing then
-                    -- the fix re-establishes position and facing together
-                    local nx, ny, nz = gps.locate()
-                    if nx then
-                        setRot(facingFrom(nx - px, nz - pz, cmd == "back"))
-                        x, y, z = nx, ny, nz
-                    end
-                    fixing = false
-                elseif rot ~= UNKNOWN then
-                    local h = heading[rot]
-                    local sign = (cmd == "back") and -1 or 1
-                    x = x + h.x * sign
-                    z = z + h.z * sign
                 end
             end
 

@@ -37,7 +37,11 @@ func turtleWs(w http.ResponseWriter, r *http.Request) {
 		if i < 0 {
 			i = len(msg)
 		}
-		if string(msg[:i]) != "heartbeat" {
+		if strings.Contains(string(msg), "fail") {
+			log.Error("received", "msg", string(msg))
+		}
+
+		if string(msg[:i]) != "heartbeat" && !strings.Contains(string(msg), "fail") {
 			log.Debug("received", "msg", string(msg))
 		} // log received messages
 		//err = conn.WriteMessage(websocket.TextMessage, []byte("ok"))
