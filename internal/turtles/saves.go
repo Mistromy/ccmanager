@@ -40,10 +40,6 @@ func LoadData(path string) {
 	_ = json.Unmarshal(data, &tl)
 	for _, t := range tl {
 		turtles[t.ID] = &t
-		log.Info("Loaded turtle", "id", t.ID, "name", t.Name)
+		log.Debug("Loaded turtle", "id", t.ID, "name", t.Name)
 	}
-}
-
-func PrintData() {
-	log.Debug(turtles)
 }
