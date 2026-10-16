@@ -10,12 +10,56 @@ import (
 	"github.com/mistromy/ccmanager/internal/utils"
 )
 
-func GetBlock(position utils.Vector32) (string, error) {
+func GetNeighbors(position utils.Vector32) [6]utils.Vector32 {
+	var blocks [6]utils.Vector32
+	blocks[0] = utils.Vector32{
+		X: position.X,
+		Y: position.Y,
+		Z: position.Z - 1,
+	}
+	blocks[1] = utils.Vector32{
+		X: position.X + 1,
+		Y: position.Y,
+		Z: position.Z,
+	}
+	blocks[2] = utils.Vector32{
+		X: position.X,
+		Y: position.Y,
+		Z: position.Z + 1,
+	}
+	blocks[3] = utils.Vector32{
+		X: position.X - 1,
+		Y: position.Y,
+		Z: position.Z,
+	}
+	blocks[4] = utils.Vector32{
+		X: position.X,
+		Y: position.Y + 1,
+		Z: position.Z,
+	}
+	blocks[5] = utils.Vector32{
+		X: position.X,
+		Y: position.Y - 1,
+		Z: position.Z,
+	}
+
+	return blocks
+}
+
+func GetBlockID(position utils.Vector32) (uint16, error) {
 	chunk, ok := chunks[getKey(position)]
 	if !ok {
-		return "", errors.New("chunk doesn't exist")
+		return 0, errors.New("chunk doesn't exist")
 	}
-	blockID := chunk[mortonIndex(inChunkPos(position))]
+	return chunk[mortonIndex(inChunkPos(position))], nil
+}
+
+func GetBlock(position utils.Vector32) (string, error) {
+	blockID, err := GetBlockID(position)
+	if err != nil {
+		log.Error("GetBlockID", "error", err)
+		return "", err
+	}
 	block := worldPalette[blockID]
 	return block, nil
 }
