@@ -30,14 +30,14 @@ func getH(start utils.Vector32, end utils.Vector32) uint32 {
 
 func indexToRot(i int) turtles.Rot {
 	switch i {
-	case 0: // +x
-		return turtles.East
-	case 1: // -x
-		return turtles.West
-	case 4: // +z
-		return turtles.South
-	case 5: // -z
+	case 0: // -z
 		return turtles.North
+	case 1: // +x
+		return turtles.East
+	case 2: // +z
+		return turtles.South
+	case 3: // -x
+		return turtles.West
 	}
 	return turtles.Unknown
 }
@@ -61,7 +61,7 @@ func pathfind(start utils.Vector32, rot turtles.Rot, end utils.Vector32) ([]stri
 					direction: indexToRot(i),
 					parent:    node,
 					g:         1 + countRotations(node.direction, indexToRot(i)) + node.g,
-					h:         getH(start, end),
+					h:         getH(v, end),
 				})
 			}
 		}
