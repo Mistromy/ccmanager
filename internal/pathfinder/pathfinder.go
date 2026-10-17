@@ -1,6 +1,7 @@
 package pathfinder
 
 import (
+	"fmt"
 	"math"
 
 	"charm.land/log/v2"
@@ -56,7 +57,7 @@ func findLowestF(frontier []*frontierNode) (*frontierNode, uint32) {
 	return bestNode, bestIndex
 }
 
-func pathfind(start utils.Vector32, rot turtles.Rot, end utils.Vector32) {
+func Pathfind(start utils.Vector32, rot turtles.Rot, end utils.Vector32) error {
 	var frontier []*frontierNode
 	parent := &frontierNode{
 		pos:       start,
@@ -67,15 +68,25 @@ func pathfind(start utils.Vector32, rot turtles.Rot, end utils.Vector32) {
 	}
 	frontier = append(frontier, parent)
 
-	for {
+	for len(frontier) > 0 {
 		activeNode, activeIndex := findLowestF(frontier)
 		if activeNode.pos == end {
 			log.Debug("Found Path")
-			return
+			var traceback = make([]*frontierNode, 0)
+			node := activeNode
+			for node != nil {
+				traceback = append(traceback, node)
+				node = node.parent
+			}
+			log.Debug("Traceback", "traceback", traceback)
+			return nil
 		}
 
 		for i, v := range world.GetNeighbors(activeNode.pos) {
-			block, _ := world.GetBlockID(v)
+			block, err := world.GetBlockID(v)
+			if err != nil {
+				return fmt.Errorf("unable to pathfind error = %w", err)
+			}
 			if block == 1 {
 				frontier = append(frontier, &frontierNode{
 					pos:       v,
@@ -89,4 +100,5 @@ func pathfind(start utils.Vector32, rot turtles.Rot, end utils.Vector32) {
 		frontier[activeIndex] = frontier[len(frontier)-1]
 		frontier = frontier[:len(frontier)-1]
 	}
+	return fmt.Errorf("goal unreachable")
 }

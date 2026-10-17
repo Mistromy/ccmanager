@@ -6,8 +6,10 @@ import (
 
 	"charm.land/log/v2"
 	_ "github.com/mistromy/ccmanager/internal/db"
+	"github.com/mistromy/ccmanager/internal/pathfinder"
 	"github.com/mistromy/ccmanager/internal/server"
 	"github.com/mistromy/ccmanager/internal/turtles"
+	"github.com/mistromy/ccmanager/internal/utils"
 )
 
 const turtleDataPath string = "turtles.json"
@@ -27,6 +29,12 @@ func main() {
 	turtles.LoadData(turtleDataPath)
 
 	log.Info("Starting ComputerCraft Server.", "port", port)
+	err = pathfinder.Pathfind(utils.Vector32{308, 32, -423}, turtles.East, utils.Vector32{313, 32, -423})
+	if err != nil {
+		log.Error(err)
+		return
+	}
+
 	go func() {
 		if err = server.Start(port); err != nil {
 			log.Fatal("Http error", "error", err)
