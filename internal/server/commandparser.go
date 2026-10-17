@@ -9,6 +9,7 @@ import (
 
 	"charm.land/log/v2"
 	"github.com/gorilla/websocket"
+	"github.com/mistromy/ccmanager/internal/pathfinder"
 	"github.com/mistromy/ccmanager/internal/turtles"
 	"github.com/mistromy/ccmanager/internal/utils"
 	"github.com/mistromy/ccmanager/internal/world"
@@ -61,6 +62,14 @@ func parse(s string) {
 			turtleCommand(0, s)
 		case "clear":
 			fmt.Print("\033[H\033[2J")
+		case "pathfind":
+			traceback, err := pathfinder.Pathfind(utils.Vector32{308, 32, -424}, turtles.East, utils.Vector32{304, 32, -424})
+			if err != nil {
+				log.Error(err)
+				return
+			}
+			commands := pathfinder.TranslateTraceback(traceback)
+			turtleCommand(5, commands)
 		default:
 			log.Error("unknown command", "command", command)
 		}

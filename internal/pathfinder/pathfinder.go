@@ -58,10 +58,10 @@ func findLowestF(frontier []*frontierNode) (*frontierNode, uint32) {
 	return bestNode, bestIndex
 }
 
-func translateTraceback(traceback []*frontierNode) {
+func TranslateTraceback(traceback []*frontierNode) []string {
 	var commandString []string
 	var last *frontierNode
-	for _, v := range slices.Backward(traceback) {
+	for _, v := range traceback {
 		if last == nil {
 			last = v
 			continue
@@ -74,13 +74,26 @@ func translateTraceback(traceback []*frontierNode) {
 			commandString = append(commandString, "down")
 			last = v
 			continue
+		} else {
+			turnCount := (int8(v.direction) - int8(last.direction) + 4) % 4
+			switch turnCount {
+			case 1:
+				commandString = append(commandString, "left")
+			case 2:
+				commandString = append(commandString, "left")
+				commandString = append(commandString, "left")
+			case 3:
+				commandString = append(commandString, "right")
+			}
+			commandString = append(commandString, "forward")
+			last = v
+			continue
 		}
-
-		last = v
 	}
+	return commandString
 }
 
-func Pathfind(start utils.Vector32, rot turtles.Rot, end utils.Vector32) error {
+func Pathfind(start utils.Vector32, rot turtles.Rot, end utils.Vector32) ([]*frontierNode, error) {
 	var frontier []*frontierNode
 	parent := &frontierNode{
 		pos:       start,
@@ -101,15 +114,16 @@ func Pathfind(start utils.Vector32, rot turtles.Rot, end utils.Vector32) error {
 				traceback = append(traceback, node)
 				node = node.parent
 			}
-			translateTraceback(traceback)
+
 			log.Debug("Traceback length", "length", len(traceback))
-			return nil
+			slices.Reverse(traceback)
+			return traceback, nil
 		}
 
 		for i, v := range world.GetNeighbors(activeNode.pos) {
 			block, err := world.GetBlockID(v)
 			if err != nil {
-				return fmt.Errorf("unable to pathfind error = %w", err)
+				return nil, fmt.Errorf("unable to pathfind error = %w", err)
 			}
 			if block == 1 {
 				frontier = append(frontier, &frontierNode{
@@ -124,5 +138,5 @@ func Pathfind(start utils.Vector32, rot turtles.Rot, end utils.Vector32) error {
 		frontier[activeIndex] = frontier[len(frontier)-1]
 		frontier = frontier[:len(frontier)-1]
 	}
-	return fmt.Errorf("goal unreachable")
+	return nil, fmt.Errorf("goal unreachable")
 }
