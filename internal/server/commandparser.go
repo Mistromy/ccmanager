@@ -63,13 +63,15 @@ func parse(s string) {
 		case "clear":
 			fmt.Print("\033[H\033[2J")
 		case "pathfind":
-			traceback, err := pathfinder.Pathfind(utils.Vector32{308, 32, -424}, turtles.East, utils.Vector32{304, 32, -424})
+			id := uint16(utils.ToInteger(args[0]))
+			startPost := utils.Vector32{int32(turtles.Get(id).Loc.X), int32(turtles.Get(id).Loc.Y), int32(turtles.Get(id).Loc.Z)}
+			traceback, err := pathfinder.Pathfind(startPost, turtles.Get(id).Loc.Rot, utils.Vector32{int32(utils.ToInteger(args[1])), int32(utils.ToInteger(args[2])), int32(utils.ToInteger(args[3]))})
 			if err != nil {
 				log.Error(err)
 				return
 			}
 			commands := pathfinder.TranslateTraceback(traceback)
-			turtleCommand(5, commands)
+			turtleCommand(id, commands)
 		default:
 			log.Error("unknown command", "command", command)
 		}

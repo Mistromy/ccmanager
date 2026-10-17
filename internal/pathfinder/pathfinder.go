@@ -80,8 +80,7 @@ func TranslateTraceback(traceback []*frontierNode) []string {
 			case 1:
 				commandString = append(commandString, "right")
 			case 2:
-				commandString = append(commandString, "left")
-				commandString = append(commandString, "left")
+				commandString = append(commandString, "left", "left")
 			case 3:
 				commandString = append(commandString, "left")
 			}
@@ -127,11 +126,9 @@ func Pathfind(start utils.Vector32, rot turtles.Rot, end utils.Vector32) ([]*fro
 			}
 			if block == 1 {
 				dir := indexToRot(i)
-
 				if dir == turtles.Unknown {
 					dir = activeNode.direction
 				}
-
 				frontier = append(frontier, &frontierNode{
 					pos:       v,
 					direction: dir,
