@@ -29,6 +29,7 @@ class CcmConfig {
     @JvmField @SerialEntry var password = ""
     @JvmField @SerialEntry var autoConnect = true
     @JvmField @SerialEntry var pollMillis = 1000
+    @JvmField @SerialEntry var scanRadius = 8
 
     @JvmField @SerialEntry var showBoxes = true
     @JvmField @SerialEntry var fillBoxes = false
@@ -71,6 +72,7 @@ object ConfigScreen {
             .option(text("Password", "Sent as the Authorization header. Stored in plain text", CcmConfig::password))
             .option(bool("Connect on world join", "Off: only connect with /ccm connect", CcmConfig::autoConnect))
             .option(slider("Poll interval (ms)", "How often to ask for all turtles", CcmConfig::pollMillis, 250, 5000, 250))
+            .option(slider("Scan radius", "Radius the menu's Scan asks for; 8 scans 17³ blocks", CcmConfig::scanRadius, 1, 16, 1))
             .build())
         .category(ConfigCategory.createBuilder().name(Text.literal("Display"))
             .option(bool("Outline boxes", "Wireframe box around every turtle", CcmConfig::showBoxes))
