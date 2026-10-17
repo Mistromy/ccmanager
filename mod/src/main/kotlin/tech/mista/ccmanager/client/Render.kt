@@ -6,6 +6,7 @@ import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext
 import net.minecraft.client.MinecraftClient
 import net.minecraft.client.gui.DrawContext
 import net.minecraft.client.render.BufferBuilder
+import net.minecraft.client.render.Camera
 import net.minecraft.util.math.Box
 import net.minecraft.util.math.MathHelper
 import net.minecraft.util.math.Vec3d
@@ -16,6 +17,9 @@ private object Colors {
     val ONLINE = 0xFF55FF55.toInt()
     val OFFLINE = 0xFFFF5555.toInt()
     val HOVER = 0xFFFFFF55.toInt()
+    val SELECTED = 0xFF55FFFF.toInt()
+    const val GHOST_FILL = 0x60AAAAAA
+    val GHOST_EDGE = 0xC0AAAAAA.toInt()
     val TEXT = 0xFFFFFFFF.toInt()
     val DIM = 0xFFAAAAAA.toInt()
     val PANEL_BG = 0xA0000000.toInt()
@@ -53,7 +57,8 @@ object WorldOverlay {
         val cfg = CcmConfig.get()
         val turtles = TurtleStore.turtles.values
         val scans = if (cfg.showScans) Scans.areas.values else emptyList()
-        if (turtles.isEmpty() && scans.isEmpty() && !cfg.showChunkBorders) return
+        val ghost = Menu.target
+        if (turtles.isEmpty() && scans.isEmpty() && ghost == null && !cfg.showChunkBorders) return
 
         val camera = ctx.camera()
         val cam = camera.pos
@@ -72,7 +77,15 @@ object WorldOverlay {
             Shapes.lines { buf -> scans.forEach { Shapes.outline(buf, m, it.box().rel(), Colors.SCAN_EDGE) } }
         }
 
-        val outlined = turtles.filter { cfg.showBoxes || it.id == hovered?.id }
+        // where Pathfind would send the turtle, shown while the menu is open: a turtle-sized grey box
+        if (ghost != null) Shapes.batch(throughWalls = true) {
+            val box = Box(ghost).contract(2.0 / 16).rel()
+            Shapes.quads { Shapes.fill(it, m, box, Colors.GHOST_FILL) }
+            Shapes.lines { Shapes.outline(it, m, box, Colors.GHOST_EDGE) }
+        }
+
+        val selected = Menu.selectedId
+        val outlined = turtles.filter { cfg.showBoxes || it.id == hovered?.id || it.id == selected }
         val tracers = cfg.showTracers && turtles.isNotEmpty()
         val filled = cfg.fillBoxes && turtles.isNotEmpty()
         if (outlined.isNotEmpty() || tracers || filled) Shapes.batch(cfg.turtlesThroughWalls) {
@@ -80,7 +93,14 @@ object WorldOverlay {
                 turtles.forEach { Shapes.fill(buf, m, it.box().rel(), Colors.withAlpha(Colors.status(it), 0x30)) }
             }
             if (outlined.isNotEmpty() || tracers) Shapes.lines { buf ->
-                for (t in outlined) Shapes.outline(buf, m, t.box().rel(), if (t.id == hovered?.id) Colors.HOVER else Colors.status(t))
+                for (t in outlined) {
+                    val color = when (t.id) {
+                        hovered?.id -> Colors.HOVER
+                        selected -> Colors.SELECTED
+                        else -> Colors.status(t)
+                    }
+                    Shapes.outline(buf, m, t.box().rel(), color)
+                }
                 // from one block in front of the eye: a line starting at the eye is a single point on screen
                 if (tracers) for (t in turtles) Shapes.line(buf, m, look, t.center().subtract(cam), Colors.withAlpha(Colors.status(t), 0xAA))
             }
@@ -109,6 +129,10 @@ object WorldOverlay {
             Labels.draw(matrices, camera, hovered, panel(hovered), Labels.PANEL_ANCHOR, Colors.PANEL_BG, throughWalls = true)
         }
     }
+
+    /** The turtle under the crosshair right now; what the menu's Select acts on. */
+    fun lookedAt(camera: Camera): Turtle? =
+        hovered(TurtleStore.turtles.values, camera.pos, Vec3d.fromPolar(camera.pitch, camera.yaw), CcmConfig.get().hoverRange.toDouble())
 
     /** Our own ray against each turtle's box, so it works through walls and in unloaded chunks. */
     private fun hovered(turtles: Collection<Turtle>, eye: Vec3d, look: Vec3d, range: Double): Turtle? {

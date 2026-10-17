@@ -19,12 +19,21 @@ internal fun onClient(block: () -> Unit) = MinecraftClient.getInstance().execute
 class CcmanagerClient : ClientModInitializer {
     override fun onInitializeClient() {
         CcmConfig.HANDLER.load()
+        Menu.register()
 
         // connection events can fire on the network thread
         ClientPlayConnectionEvents.JOIN.register { _, _, _ -> onClient { if (CcmConfig.get().autoConnect) Link.start() } }
-        ClientPlayConnectionEvents.DISCONNECT.register { _, _ -> onClient { Link.stop() } }
+        ClientPlayConnectionEvents.DISCONNECT.register { _, _ ->
+            onClient {
+                Link.stop()
+                Menu.selectedId = null
+            }
+        }
 
-        ClientTickEvents.END_CLIENT_TICK.register { Link.tick() }          // 20/s: reconnects and polling
+        ClientTickEvents.END_CLIENT_TICK.register {                        // 20/s
+            Link.tick()   // reconnects and polling
+            Menu.tick(it) // opens the menu while its key is held
+        }
         WorldRenderEvents.LAST.register(WorldOverlay::render)             // every frame, after the world
         HudRenderCallback.EVENT.register { draw, _ -> StatusHud.render(draw) }
         ClientCommandRegistrationCallback.EVENT.register { dispatcher, _ -> Commands.register(dispatcher) }

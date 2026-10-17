@@ -4,10 +4,11 @@ import (
 	"bytes"
 	"encoding/binary"
 
+	"slices"
+
 	"charm.land/log/v2"
 	"github.com/mistromy/ccmanager/internal/db"
 	"github.com/mistromy/ccmanager/internal/utils"
-	"golang.org/x/exp/slices"
 )
 
 var (
