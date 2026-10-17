@@ -78,12 +78,12 @@ func TranslateTraceback(traceback []*frontierNode) []string {
 			turnCount := (int8(v.direction) - int8(last.direction) + 4) % 4
 			switch turnCount {
 			case 1:
-				commandString = append(commandString, "left")
+				commandString = append(commandString, "right")
 			case 2:
 				commandString = append(commandString, "left")
 				commandString = append(commandString, "left")
 			case 3:
-				commandString = append(commandString, "right")
+				commandString = append(commandString, "left")
 			}
 			commandString = append(commandString, "forward")
 			last = v
@@ -126,11 +126,17 @@ func Pathfind(start utils.Vector32, rot turtles.Rot, end utils.Vector32) ([]*fro
 				return nil, fmt.Errorf("unable to pathfind error = %w", err)
 			}
 			if block == 1 {
+				dir := indexToRot(i)
+
+				if dir == turtles.Unknown {
+					dir = activeNode.direction
+				}
+
 				frontier = append(frontier, &frontierNode{
 					pos:       v,
-					direction: indexToRot(i),
+					direction: dir,
 					parent:    activeNode,
-					g:         1 + countRotations(activeNode.direction, indexToRot(i)) + activeNode.g,
+					g:         1 + countRotations(activeNode.direction, dir) + activeNode.g,
 					h:         getH(v, end),
 				})
 			}
