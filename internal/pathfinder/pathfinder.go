@@ -3,6 +3,7 @@ package pathfinder
 import (
 	"fmt"
 	"math"
+	"slices"
 
 	"charm.land/log/v2"
 	"github.com/mistromy/ccmanager/internal/turtles"
@@ -57,6 +58,28 @@ func findLowestF(frontier []*frontierNode) (*frontierNode, uint32) {
 	return bestNode, bestIndex
 }
 
+func translateTraceback(traceback []*frontierNode) {
+	var commandString []string
+	var last *frontierNode
+	for _, v := range slices.Backward(traceback) {
+		if last == nil {
+			last = v
+			continue
+		}
+		if v.pos.Y > last.pos.Y {
+			commandString = append(commandString, "up")
+			last = v
+			continue
+		} else if v.pos.Y < last.pos.Y {
+			commandString = append(commandString, "down")
+			last = v
+			continue
+		}
+
+		last = v
+	}
+}
+
 func Pathfind(start utils.Vector32, rot turtles.Rot, end utils.Vector32) error {
 	var frontier []*frontierNode
 	parent := &frontierNode{
@@ -78,7 +101,8 @@ func Pathfind(start utils.Vector32, rot turtles.Rot, end utils.Vector32) error {
 				traceback = append(traceback, node)
 				node = node.parent
 			}
-			log.Debug("Traceback", "traceback", traceback)
+			translateTraceback(traceback)
+			log.Debug("Traceback length", "length", len(traceback))
 			return nil
 		}
 

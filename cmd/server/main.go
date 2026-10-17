@@ -29,7 +29,7 @@ func main() {
 	turtles.LoadData(turtleDataPath)
 
 	log.Info("Starting ComputerCraft Server.", "port", port)
-	err = pathfinder.Pathfind(utils.Vector32{308, 32, -423}, turtles.East, utils.Vector32{313, 32, -423})
+	err = pathfinder.Pathfind(utils.Vector32{308, 32, -423}, turtles.East, utils.Vector32{308, 32, -425})
 	if err != nil {
 		log.Error(err)
 		return
