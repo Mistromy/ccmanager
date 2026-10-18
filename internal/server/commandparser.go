@@ -71,6 +71,7 @@ func parse(s string) {
 				return
 			}
 			commands := pathfinder.TranslateTraceback(traceback)
+			sendPath(traceback)
 			sendPathfindData(explored, frontier)
 			turtleCommand(id, commands)
 		default:

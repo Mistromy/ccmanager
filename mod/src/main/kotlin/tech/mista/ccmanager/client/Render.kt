@@ -21,6 +21,7 @@ private object Colors {
     const val GHOST_FILL = 0x60AAAAAA
     const val EXPLORED = 0x30FFAA00
     const val FRONTIER = 0x4000FFAA
+    val PATH = 0xFFFF55FF.toInt()
     val GHOST_EDGE = 0xC0AAAAAA.toInt()
     val TEXT = 0xFFFFFFFF.toInt()
     val DIM = 0xFFAAAAAA.toInt()
@@ -62,8 +63,9 @@ object WorldOverlay {
         val ghost = Menu.target
         val explored = if (cfg.showPathfind) PathDebug.explored else emptyList()
         val frontier = if (cfg.showPathfind) PathDebug.frontier else emptyList()
+        val path = if (cfg.showPath) PathDebug.path else emptyList()
         val search = explored.isNotEmpty() || frontier.isNotEmpty()
-        if (turtles.isEmpty() && scans.isEmpty() && !search && ghost == null && !cfg.showChunkBorders) return
+        if (turtles.isEmpty() && scans.isEmpty() && !search && path.size < 2 && ghost == null && !cfg.showChunkBorders) return
 
         val camera = ctx.camera()
         val cam = camera.pos
@@ -89,6 +91,13 @@ object WorldOverlay {
                     val b = Box(c.x.toDouble(), c.y.toDouble(), c.z.toDouble(), c.x + 1.0, c.y + 1.0, c.z + 1.0).rel()
                     for (k in 0 until 6) if (c.faces and (1 shl k) != 0) Shapes.face(buf, m, inset(b, k), k, color)
                 }
+            }
+        }
+
+        // the chosen path, drawn after the search so it sits on top: one line through its block centres, in order
+        if (path.size >= 2) Shapes.batch(cfg.pathThroughWalls) {
+            Shapes.lines { buf ->
+                path.zipWithNext { a, b -> Shapes.line(buf, m, Vec3d.ofCenter(a).subtract(cam), Vec3d.ofCenter(b).subtract(cam), Colors.PATH) }
             }
         }
 

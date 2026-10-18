@@ -60,22 +60,32 @@ object Scans {
 }
 
 /**
- * The last pathfind's search, for debugging the pathfinder: the explored
- * blocks (A*'s closed set, the inside) and the frontier (the open set, the
- * shell it was still expanding).
+ * The last pathfind, for debugging the pathfinder: the explored blocks (A*'s
+ * closed set, the inside), the frontier (the open set, the shell it was still
+ * expanding), and the path it settled on, in order.
  */
 object PathDebug {
     var explored: List<PathCell> = emptyList()
         private set
     var frontier: List<PathCell> = emptyList()
         private set
+    var path: List<BlockPos> = emptyList()
+        private set
 
     fun replaceExplored(cells: List<PathCell>) { explored = cells }
     fun replaceFrontier(cells: List<PathCell>) { frontier = cells }
+    fun replacePath(points: List<BlockPos>) { path = points }
 
-    fun clear() {
+    fun clearSearch() {
         explored = emptyList()
         frontier = emptyList()
+    }
+
+    fun clearPath() { path = emptyList() }
+
+    fun clear() {
+        clearSearch()
+        clearPath()
     }
 }
 
@@ -97,22 +107,25 @@ object WireJson {
     }
 
     /**
-     * `pathfindExplored` / `pathfindFrontier` payload: an array of `{X,Y,Z}`
-     * (Go's Vector32), or `null` when empty. Works out each block's outside faces.
+     * `path`, `pathfindExplored` and `pathfindFrontier` payloads: an array of
+     * `{X,Y,Z}` (Go's Vector32), or `null` when empty. Order is kept.
      */
-    fun cells(json: String): List<PathCell> {
-        val points = (JsonParser.parseString(json) as? JsonArray)?.mapNotNull { e ->
+    fun points(json: String): List<BlockPos> =
+        (JsonParser.parseString(json) as? JsonArray)?.mapNotNull { e ->
             val o = e as? JsonObject ?: return@mapNotNull null
-            Triple(o.int("x") ?: return@mapNotNull null, o.int("y") ?: return@mapNotNull null, o.int("z") ?: return@mapNotNull null)
-        } ?: return emptyList()
+            BlockPos(o.int("x") ?: return@mapNotNull null, o.int("y") ?: return@mapNotNull null, o.int("z") ?: return@mapNotNull null)
+        } ?: emptyList()
 
-        val set = points.mapTo(HashSet(points.size * 2)) { (x, y, z) -> BlockPos.asLong(x, y, z) }
-        return points.map { (x, y, z) ->
+    /** [points], plus which of each block's faces border a block outside the set. */
+    fun cells(json: String): List<PathCell> {
+        val points = points(json)
+        val set = points.mapTo(HashSet(points.size * 2)) { it.asLong() }
+        return points.map { p ->
             var faces = 0
             FACE_OFFSETS.forEachIndexed { k, (dx, dy, dz) ->
-                if (BlockPos.asLong(x + dx, y + dy, z + dz) !in set) faces = faces or (1 shl k)
+                if (BlockPos.asLong(p.x + dx, p.y + dy, p.z + dz) !in set) faces = faces or (1 shl k)
             }
-            PathCell(x, y, z, faces)
+            PathCell(p.x, p.y, p.z, faces)
         }
     }
 

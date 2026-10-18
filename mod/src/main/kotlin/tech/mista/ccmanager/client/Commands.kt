@@ -14,7 +14,8 @@ import net.minecraft.text.Text
  * /ccm disconnect      stay disconnected until connect or the next world join
  * /ccm command <text>  hand <text> to the backend's command parser, as if typed in its terminal
  * /ccm clearscans      remove all scan cubes
- * /ccm clearpath       remove the pathfinder's explored blocks
+ * /ccm clearsearch     remove the pathfinder's explored and frontier blocks
+ * /ccm clearpath       remove the path line
  * /ccm config          settings screen
  *
  * Client-side commands: they never reach the Minecraft server.
@@ -42,9 +43,13 @@ object Commands {
                 Scans.clear()
                 reply(it.source, "scan areas cleared")
             })
-            .then(literal("clearpath").executes {
-                PathDebug.clear()
+            .then(literal("clearsearch").executes {
+                PathDebug.clearSearch()
                 reply(it.source, "pathfinder search cleared")
+            })
+            .then(literal("clearpath").executes {
+                PathDebug.clearPath()
+                reply(it.source, "path cleared")
             })
             .then(literal("config").executes {
                 // the chat screen closes right after a command runs, which would close ours too; send() opens it after

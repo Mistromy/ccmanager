@@ -89,3 +89,16 @@ func sendPathfindData(explored []utils.Vector32, frontier []*pathfinder.Frontier
 		return
 	}
 }
+
+func sendPath(traceback []*pathfinder.FrontierNode) {
+	var pathPoints []utils.Vector32
+	for _, v := range traceback {
+		pathPoints = append(pathPoints, v.Pos)
+	}
+	pathPointsJson, err := json.Marshal(pathPoints)
+	if err != nil {
+		log.Error("marshal json", "error", err)
+		return
+	}
+	err = clientConn.WriteMessage(websocket.TextMessage, append([]byte("path "), pathPointsJson...))
+}
