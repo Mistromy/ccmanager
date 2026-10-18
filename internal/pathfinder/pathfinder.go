@@ -94,6 +94,8 @@ func TranslateTraceback(traceback []*FrontierNode) []string {
 
 func Pathfind(start utils.Vector32, rot turtles.Rot, end utils.Vector32) ([]*FrontierNode, []utils.Vector32, []*FrontierNode, error) {
 	var frontier []*FrontierNode
+	var explored []utils.Vector32
+	seen := make(map[utils.Vector32]*FrontierNode)
 	parent := &FrontierNode{
 		pos:       start,
 		direction: rot,
@@ -102,8 +104,6 @@ func Pathfind(start utils.Vector32, rot turtles.Rot, end utils.Vector32) ([]*Fro
 		h:         getH(start, end),
 	}
 	frontier = append(frontier, parent)
-
-	var explored []utils.Vector32
 
 	for len(frontier) > 0 {
 		activeNode, activeIndex := findLowestF(frontier)
@@ -115,11 +115,10 @@ func Pathfind(start utils.Vector32, rot turtles.Rot, end utils.Vector32) ([]*Fro
 				traceback = append(traceback, node)
 				node = node.parent
 			}
-
 			log.Debug("Traceback length", "length", len(traceback))
 			slices.Reverse(traceback)
 			return traceback, explored, frontier, nil
-		}
+		} // returns if destination was reached
 
 		for i, v := range world.GetNeighbors(activeNode.pos) {
 			block, err := world.GetBlockID(v)
@@ -127,6 +126,9 @@ func Pathfind(start utils.Vector32, rot turtles.Rot, end utils.Vector32) ([]*Fro
 				return nil, explored, frontier, fmt.Errorf("unable to pathfind error = %w", err)
 			}
 			if block == 1 {
+				if seen[v] != nil {
+					continue
+				}
 				dir := indexToRot(i)
 				if dir == turtles.Unknown {
 					dir = activeNode.direction
@@ -140,6 +142,7 @@ func Pathfind(start utils.Vector32, rot turtles.Rot, end utils.Vector32) ([]*Fro
 				})
 			}
 		}
+		seen[frontier[activeIndex].pos] = activeNode
 		explored = append(explored, frontier[activeIndex].pos)
 		frontier[activeIndex] = frontier[len(frontier)-1]
 		frontier = frontier[:len(frontier)-1]
