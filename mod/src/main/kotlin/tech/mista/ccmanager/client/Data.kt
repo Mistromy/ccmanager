@@ -5,6 +5,7 @@ import com.google.gson.JsonElement
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
 import com.google.gson.JsonPrimitive
+import net.minecraft.util.math.BlockPos
 
 data class Turtle(
     val id: Int,
@@ -32,6 +33,13 @@ enum class Facing {
 /** A turtle's last scan: a static cube around where it stood. */
 data class ScanArea(val turtleId: Int, val x: Int, val y: Int, val z: Int, val radius: Int)
 
+/**
+ * One block the last pathfind explored. [faces] has bit k set when face k
+ * (-x +x -y +y -z +z, as in Shapes) borders an unexplored block, so only the
+ * outside of the explored volume gets drawn.
+ */
+data class PathCell(val x: Int, val y: Int, val z: Int, val faces: Int)
+
 // The stores. Client thread only, and always replaced whole rather than
 // edited, so the renderer never sees half an update.
 
@@ -51,6 +59,15 @@ object Scans {
     fun clear() { areas = emptyMap() }
 }
 
+/** The last pathfind's search, for debugging the pathfinder. The frontier will join it later. */
+object PathDebug {
+    var explored: List<PathCell> = emptyList()
+        private set
+
+    fun replace(cells: List<PathCell>) { explored = cells }
+    fun clear() { explored = emptyList() }
+}
+
 /**
  * Wire JSON → data. Go only tags `Turtle` (lowercase); `Loc` and `Item` use
  * their Go field names (`X`, `Count`...). Gson is case-sensitive, so keys are
@@ -67,6 +84,28 @@ object WireJson {
         val o = JsonParser.parseString(json).asJsonObject
         return ScanArea(o["id"].asInt, o["x"].asInt, o["y"].asInt, o["z"].asInt, o["radius"].asInt)
     }
+
+    /** `pathfind` payload: an array of `{X,Y,Z}` (Go's Vector32). Works out each block's outside faces. */
+    fun explored(json: String): List<PathCell> {
+        val points = (JsonParser.parseString(json) as? JsonArray)?.mapNotNull { e ->
+            val o = e as? JsonObject ?: return@mapNotNull null
+            Triple(o.int("x") ?: return@mapNotNull null, o.int("y") ?: return@mapNotNull null, o.int("z") ?: return@mapNotNull null)
+        } ?: return emptyList()
+
+        val set = points.mapTo(HashSet(points.size * 2)) { (x, y, z) -> BlockPos.asLong(x, y, z) }
+        return points.map { (x, y, z) ->
+            var faces = 0
+            FACE_OFFSETS.forEachIndexed { k, (dx, dy, dz) ->
+                if (BlockPos.asLong(x + dx, y + dy, z + dz) !in set) faces = faces or (1 shl k)
+            }
+            PathCell(x, y, z, faces)
+        }
+    }
+
+    // neighbour across each face, in Shapes' face order: -x +x -y +y -z +z
+    private val FACE_OFFSETS = listOf(
+        Triple(-1, 0, 0), Triple(1, 0, 0), Triple(0, -1, 0), Triple(0, 1, 0), Triple(0, 0, -1), Triple(0, 0, 1),
+    )
 
     private fun turtle(o: JsonObject): Turtle? {
         val loc = o.obj("loc")

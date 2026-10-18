@@ -11,10 +11,10 @@ import (
 	"github.com/mistromy/ccmanager/internal/world"
 )
 
-type frontierNode struct {
+type FrontierNode struct {
 	pos       utils.Vector32
 	direction turtles.Rot
-	parent    *frontierNode
+	parent    *FrontierNode
 	g         uint32 //current cost
 	h         uint32 //predicted cost
 }
@@ -45,7 +45,7 @@ func indexToRot(i int) turtles.Rot {
 	return turtles.Unknown
 }
 
-func findLowestF(frontier []*frontierNode) (*frontierNode, uint32) {
+func findLowestF(frontier []*FrontierNode) (*FrontierNode, uint32) {
 	bestNode := frontier[0]
 	var bestIndex uint32 = 0
 	for i, v := range frontier {
@@ -58,9 +58,9 @@ func findLowestF(frontier []*frontierNode) (*frontierNode, uint32) {
 	return bestNode, bestIndex
 }
 
-func TranslateTraceback(traceback []*frontierNode) []string {
+func TranslateTraceback(traceback []*FrontierNode) []string {
 	var commandString []string
-	var last *frontierNode
+	var last *FrontierNode
 	for _, v := range traceback {
 		if last == nil {
 			last = v
@@ -92,9 +92,9 @@ func TranslateTraceback(traceback []*frontierNode) []string {
 	return commandString
 }
 
-func Pathfind(start utils.Vector32, rot turtles.Rot, end utils.Vector32) ([]*frontierNode, error) {
-	var frontier []*frontierNode
-	parent := &frontierNode{
+func Pathfind(start utils.Vector32, rot turtles.Rot, end utils.Vector32) ([]*FrontierNode, []utils.Vector32, []*FrontierNode, error) {
+	var frontier []*FrontierNode
+	parent := &FrontierNode{
 		pos:       start,
 		direction: rot,
 		parent:    nil,
@@ -103,11 +103,13 @@ func Pathfind(start utils.Vector32, rot turtles.Rot, end utils.Vector32) ([]*fro
 	}
 	frontier = append(frontier, parent)
 
+	var explored []utils.Vector32
+
 	for len(frontier) > 0 {
 		activeNode, activeIndex := findLowestF(frontier)
 		if activeNode.pos == end {
 			log.Debug("Found Path")
-			var traceback = make([]*frontierNode, 0)
+			var traceback = make([]*FrontierNode, 0)
 			node := activeNode
 			for node != nil {
 				traceback = append(traceback, node)
@@ -116,20 +118,20 @@ func Pathfind(start utils.Vector32, rot turtles.Rot, end utils.Vector32) ([]*fro
 
 			log.Debug("Traceback length", "length", len(traceback))
 			slices.Reverse(traceback)
-			return traceback, nil
+			return traceback, explored, frontier, nil
 		}
 
 		for i, v := range world.GetNeighbors(activeNode.pos) {
 			block, err := world.GetBlockID(v)
 			if err != nil {
-				return nil, fmt.Errorf("unable to pathfind error = %w", err)
+				return nil, explored, frontier, fmt.Errorf("unable to pathfind error = %w", err)
 			}
 			if block == 1 {
 				dir := indexToRot(i)
 				if dir == turtles.Unknown {
 					dir = activeNode.direction
 				}
-				frontier = append(frontier, &frontierNode{
+				frontier = append(frontier, &FrontierNode{
 					pos:       v,
 					direction: dir,
 					parent:    activeNode,
@@ -138,8 +140,9 @@ func Pathfind(start utils.Vector32, rot turtles.Rot, end utils.Vector32) ([]*fro
 				})
 			}
 		}
+		explored = append(explored, frontier[activeIndex].pos)
 		frontier[activeIndex] = frontier[len(frontier)-1]
 		frontier = frontier[:len(frontier)-1]
 	}
-	return nil, fmt.Errorf("goal unreachable")
+	return nil, explored, frontier, fmt.Errorf("goal unreachable")
 }

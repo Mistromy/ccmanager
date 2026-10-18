@@ -8,7 +8,9 @@ import (
 
 	"charm.land/log/v2"
 	"github.com/gorilla/websocket"
+	"github.com/mistromy/ccmanager/internal/pathfinder"
 	"github.com/mistromy/ccmanager/internal/turtles"
+	"github.com/mistromy/ccmanager/internal/utils"
 )
 
 func clientWs(w http.ResponseWriter, r *http.Request) {
@@ -66,6 +68,14 @@ func sendTurtleData() {
 		return
 	}
 	err = clientConn.WriteMessage(websocket.TextMessage, append([]byte("turtles "), data...))
+	if err != nil {
+		return
+	}
+}
+
+func sendPathfindData(explored []utils.Vector32, frontier []*pathfinder.FrontierNode) {
+	data, err := json.Marshal(explored)
+	err = clientConn.WriteMessage(websocket.TextMessage, append([]byte("pathfind "), data...))
 	if err != nil {
 		return
 	}
