@@ -78,7 +78,12 @@ object Shapes {
     )
 
     fun fill(buf: BufferBuilder, m: Matrix4f, b: Box, color: Int) {
-        for (face in faces) for (i in face) corner(b, i).let { vertex(buf, m, it.x, it.y, it.z, color) }
+        for (k in faces.indices) face(buf, m, b, k, color)
+    }
+
+    /** One face of a box; [k] indexes -x +x -y +y -z +z. */
+    fun face(buf: BufferBuilder, m: Matrix4f, b: Box, k: Int, color: Int) {
+        for (i in faces[k]) corner(b, i).let { vertex(buf, m, it.x, it.y, it.z, color) }
     }
 
     /** Flat rectangle in the matrix's own plane; label backgrounds. */

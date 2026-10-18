@@ -19,6 +19,9 @@ private object Colors {
     val HOVER = 0xFFFFFF55.toInt()
     val SELECTED = 0xFF55FFFF.toInt()
     const val GHOST_FILL = 0x60AAAAAA
+    const val EXPLORED = 0x30FFAA00
+    const val FRONTIER = 0x4000FFAA
+    val PATH = 0xFFFF55FF.toInt()
     val GHOST_EDGE = 0xC0AAAAAA.toInt()
     val TEXT = 0xFFFFFFFF.toInt()
     val DIM = 0xFFAAAAAA.toInt()
@@ -58,7 +61,11 @@ object WorldOverlay {
         val turtles = TurtleStore.turtles.values
         val scans = if (cfg.showScans) Scans.areas.values else emptyList()
         val ghost = Menu.target
-        if (turtles.isEmpty() && scans.isEmpty() && ghost == null && !cfg.showChunkBorders) return
+        val explored = if (cfg.showPathfind) PathDebug.explored else emptyList()
+        val frontier = if (cfg.showPathfind) PathDebug.frontier else emptyList()
+        val path = if (cfg.showPath) PathDebug.path else emptyList()
+        val search = explored.isNotEmpty() || frontier.isNotEmpty()
+        if (turtles.isEmpty() && scans.isEmpty() && !search && path.size < 2 && ghost == null && !cfg.showChunkBorders) return
 
         val camera = ctx.camera()
         val cam = camera.pos
@@ -75,6 +82,23 @@ object WorldOverlay {
         if (scans.isNotEmpty()) Shapes.batch(cfg.scansThroughWalls) {
             Shapes.quads { buf -> scans.forEach { Shapes.fill(buf, m, it.box().rel(), Colors.SCAN_FILL) } }
             Shapes.lines { buf -> scans.forEach { Shapes.outline(buf, m, it.box().rel(), Colors.SCAN_EDGE) } }
+        }
+
+        // the pathfinder's search as translucent volumes: only faces bordering blocks outside the same set
+        if (search) Shapes.batch(cfg.pathfindThroughWalls) {
+            Shapes.quads { buf ->
+                for ((cells, color) in listOf(explored to Colors.EXPLORED, frontier to Colors.FRONTIER)) for (c in cells) {
+                    val b = Box(c.x.toDouble(), c.y.toDouble(), c.z.toDouble(), c.x + 1.0, c.y + 1.0, c.z + 1.0).rel()
+                    for (k in 0 until 6) if (c.faces and (1 shl k) != 0) Shapes.face(buf, m, inset(b, k), k, color)
+                }
+            }
+        }
+
+        // the chosen path, drawn after the search so it sits on top: one line through its block centres, in order
+        if (path.size >= 2) Shapes.batch(cfg.pathThroughWalls) {
+            Shapes.lines { buf ->
+                path.zipWithNext { a, b -> Shapes.line(buf, m, Vec3d.ofCenter(a).subtract(cam), Vec3d.ofCenter(b).subtract(cam), Colors.PATH) }
+            }
         }
 
         // where Pathfind would send the turtle, shown while the menu is open: a turtle-sized grey box
@@ -173,6 +197,20 @@ object WorldOverlay {
             }
         }
         Shapes.outline(buf, m, Box(ox, oy, oz, ox + 16, oy + 16, oz + 16).offset(cam.negate()), Colors.CHUNK_EDGE)
+    }
+
+    // Pulls face k a hair inward, so it doesn't flicker against the solid block
+    // it's touching. Only along its own axis, so neighbouring faces still meet without seams.
+    private fun inset(b: Box, k: Int): Box {
+        val e = 0.005
+        return when (k) {
+            0 -> b.withMinX(b.minX + e)
+            1 -> b.withMaxX(b.maxX - e)
+            2 -> b.withMinY(b.minY + e)
+            3 -> b.withMaxY(b.maxY - e)
+            4 -> b.withMinZ(b.minZ + e)
+            else -> b.withMaxZ(b.maxZ - e)
+        }
     }
 
     private fun clearDepth() = RenderSystem.clear(GlConst.GL_DEPTH_BUFFER_BIT, MinecraftClient.IS_SYSTEM_MAC)

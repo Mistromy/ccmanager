@@ -8,7 +8,9 @@ import (
 
 	"charm.land/log/v2"
 	"github.com/gorilla/websocket"
+	"github.com/mistromy/ccmanager/internal/pathfinder"
 	"github.com/mistromy/ccmanager/internal/turtles"
+	"github.com/mistromy/ccmanager/internal/utils"
 )
 
 func clientWs(w http.ResponseWriter, r *http.Request) {
@@ -69,4 +71,34 @@ func sendTurtleData() {
 	if err != nil {
 		return
 	}
+}
+
+func sendPathfindData(explored []utils.Vector32, frontier []*pathfinder.FrontierNode) {
+	exploredJson, err := json.Marshal(explored)
+	var frontierBlocks []utils.Vector32
+	for _, v := range frontier {
+		frontierBlocks = append(frontierBlocks, v.Pos)
+	}
+	err = clientConn.WriteMessage(websocket.TextMessage, append([]byte("pathfindExplored "), exploredJson...))
+	if err != nil {
+		return
+	}
+	frontierJson, err := json.Marshal(frontierBlocks)
+	err = clientConn.WriteMessage(websocket.TextMessage, append([]byte("pathfindFrontier "), frontierJson...))
+	if err != nil {
+		return
+	}
+}
+
+func sendPath(traceback []*pathfinder.FrontierNode) {
+	var pathPoints []utils.Vector32
+	for _, v := range traceback {
+		pathPoints = append(pathPoints, v.Pos)
+	}
+	pathPointsJson, err := json.Marshal(pathPoints)
+	if err != nil {
+		log.Error("marshal json", "error", err)
+		return
+	}
+	err = clientConn.WriteMessage(websocket.TextMessage, append([]byte("path "), pathPointsJson...))
 }

@@ -37,6 +37,10 @@ class CcmConfig {
     @JvmField @SerialEntry var showNametags = true
     @JvmField @SerialEntry var showChunkBorders = false
     @JvmField @SerialEntry var showScans = true
+    @JvmField @SerialEntry var showPathfind = true
+    @JvmField @SerialEntry var pathfindThroughWalls = true
+    @JvmField @SerialEntry var showPath = true
+    @JvmField @SerialEntry var pathThroughWalls = true
     @JvmField @SerialEntry var turtlesThroughWalls = true
     @JvmField @SerialEntry var nametagsThroughWalls = true
     @JvmField @SerialEntry var scansThroughWalls = true
@@ -81,6 +85,10 @@ object ConfigScreen {
             .option(bool("Nametags", "Name above every turtle. The hover panel shows regardless", CcmConfig::showNametags))
             .option(bool("Chunk borders", "The 16³ chunk you're in, and the 3x3x3 around it", CcmConfig::showChunkBorders))
             .option(bool("Scan areas", "Cube over each turtle's last scan. /ccm clearscans removes them", CcmConfig::showScans))
+            .option(bool("Pathfinder search", "Last pathfind's explored blocks (amber) and frontier (green). /ccm clearsearch removes them", CcmConfig::showPathfind))
+            .option(bool("Pathfinder search through walls", "", CcmConfig::pathfindThroughWalls))
+            .option(bool("Pathfind path", "Pink line along the last path found. /ccm clearpath removes it", CcmConfig::showPath))
+            .option(bool("Pathfind path through walls", "", CcmConfig::pathThroughWalls))
             .option(bool("Turtles through walls", "Boxes and tracers on top of terrain", CcmConfig::turtlesThroughWalls))
             .option(bool("Nametags through walls", "The hover panel always is", CcmConfig::nametagsThroughWalls))
             .option(bool("Scan areas through walls", "", CcmConfig::scansThroughWalls))

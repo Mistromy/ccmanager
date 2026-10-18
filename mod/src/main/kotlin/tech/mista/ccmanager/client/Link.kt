@@ -54,6 +54,7 @@ object Link {
         state = State.OFF
         TurtleStore.clear()
         Scans.clear()
+        PathDebug.clear()
     }
 
     fun restartIfRunning() {
@@ -83,6 +84,9 @@ object Link {
             when (verb) {
                 "turtles" -> WireJson.turtles(payload).let { onClient { TurtleStore.replaceAll(it) } }
                 "scan" -> WireJson.scan(payload).let { onClient { Scans.put(it) } }
+                "pathfindExplored" -> WireJson.cells(payload).let { onClient { PathDebug.replaceExplored(it) } }
+                "pathfindFrontier" -> WireJson.cells(payload).let { onClient { PathDebug.replaceFrontier(it) } }
+                "path" -> WireJson.points(payload).let { onClient { PathDebug.replacePath(it) } }
                 else -> log.debug("unhandled message: {}", verb)
             }
         } catch (e: Exception) {
