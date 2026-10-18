@@ -93,6 +93,15 @@ func TranslateTraceback(traceback []*FrontierNode) []string {
 }
 
 func Pathfind(start utils.Vector32, rot turtles.Rot, end utils.Vector32) ([]*FrontierNode, []utils.Vector32, []*FrontierNode, error) {
+	{
+		block, err := world.GetBlockID(end)
+		if err != nil {
+			return nil, nil, nil, fmt.Errorf("unable to pathfind error = %w", err)
+		}
+		if block != uint16(1) {
+			return nil, nil, nil, fmt.Errorf("goal obstructed. consider rescanning")
+		}
+	}
 	var frontier []*FrontierNode
 	var explored []utils.Vector32
 	seen := make(map[utils.Vector32]*FrontierNode)
