@@ -20,6 +20,7 @@ private object Colors {
     val SELECTED = 0xFF55FFFF.toInt()
     const val GHOST_FILL = 0x60AAAAAA
     const val EXPLORED = 0x30FFAA00
+    const val FRONTIER = 0x4000FFAA
     val GHOST_EDGE = 0xC0AAAAAA.toInt()
     val TEXT = 0xFFFFFFFF.toInt()
     val DIM = 0xFFAAAAAA.toInt()
@@ -60,7 +61,9 @@ object WorldOverlay {
         val scans = if (cfg.showScans) Scans.areas.values else emptyList()
         val ghost = Menu.target
         val explored = if (cfg.showPathfind) PathDebug.explored else emptyList()
-        if (turtles.isEmpty() && scans.isEmpty() && explored.isEmpty() && ghost == null && !cfg.showChunkBorders) return
+        val frontier = if (cfg.showPathfind) PathDebug.frontier else emptyList()
+        val search = explored.isNotEmpty() || frontier.isNotEmpty()
+        if (turtles.isEmpty() && scans.isEmpty() && !search && ghost == null && !cfg.showChunkBorders) return
 
         val camera = ctx.camera()
         val cam = camera.pos
@@ -79,12 +82,12 @@ object WorldOverlay {
             Shapes.lines { buf -> scans.forEach { Shapes.outline(buf, m, it.box().rel(), Colors.SCAN_EDGE) } }
         }
 
-        // the pathfinder's explored blocks as one translucent volume: only faces bordering unexplored space
-        if (explored.isNotEmpty()) Shapes.batch(cfg.pathfindThroughWalls) {
+        // the pathfinder's search as translucent volumes: only faces bordering blocks outside the same set
+        if (search) Shapes.batch(cfg.pathfindThroughWalls) {
             Shapes.quads { buf ->
-                for (c in explored) {
+                for ((cells, color) in listOf(explored to Colors.EXPLORED, frontier to Colors.FRONTIER)) for (c in cells) {
                     val b = Box(c.x.toDouble(), c.y.toDouble(), c.z.toDouble(), c.x + 1.0, c.y + 1.0, c.z + 1.0).rel()
-                    for (k in 0 until 6) if (c.faces and (1 shl k) != 0) Shapes.face(buf, m, inset(b, k), k, Colors.EXPLORED)
+                    for (k in 0 until 6) if (c.faces and (1 shl k) != 0) Shapes.face(buf, m, inset(b, k), k, color)
                 }
             }
         }

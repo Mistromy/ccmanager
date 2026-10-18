@@ -74,8 +74,17 @@ func sendTurtleData() {
 }
 
 func sendPathfindData(explored []utils.Vector32, frontier []*pathfinder.FrontierNode) {
-	data, err := json.Marshal(explored)
-	err = clientConn.WriteMessage(websocket.TextMessage, append([]byte("pathfind "), data...))
+	exploredJson, err := json.Marshal(explored)
+	var frontierBlocks []utils.Vector32
+	for _, v := range frontier {
+		frontierBlocks = append(frontierBlocks, v.Pos)
+	}
+	err = clientConn.WriteMessage(websocket.TextMessage, append([]byte("pathfindExplored "), exploredJson...))
+	if err != nil {
+		return
+	}
+	frontierJson, err := json.Marshal(frontierBlocks)
+	err = clientConn.WriteMessage(websocket.TextMessage, append([]byte("pathfindFrontier "), frontierJson...))
 	if err != nil {
 		return
 	}

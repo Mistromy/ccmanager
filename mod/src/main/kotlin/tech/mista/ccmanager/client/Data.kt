@@ -59,13 +59,24 @@ object Scans {
     fun clear() { areas = emptyMap() }
 }
 
-/** The last pathfind's search, for debugging the pathfinder. The frontier will join it later. */
+/**
+ * The last pathfind's search, for debugging the pathfinder: the explored
+ * blocks (A*'s closed set, the inside) and the frontier (the open set, the
+ * shell it was still expanding).
+ */
 object PathDebug {
     var explored: List<PathCell> = emptyList()
         private set
+    var frontier: List<PathCell> = emptyList()
+        private set
 
-    fun replace(cells: List<PathCell>) { explored = cells }
-    fun clear() { explored = emptyList() }
+    fun replaceExplored(cells: List<PathCell>) { explored = cells }
+    fun replaceFrontier(cells: List<PathCell>) { frontier = cells }
+
+    fun clear() {
+        explored = emptyList()
+        frontier = emptyList()
+    }
 }
 
 /**
@@ -85,8 +96,11 @@ object WireJson {
         return ScanArea(o["id"].asInt, o["x"].asInt, o["y"].asInt, o["z"].asInt, o["radius"].asInt)
     }
 
-    /** `pathfind` payload: an array of `{X,Y,Z}` (Go's Vector32). Works out each block's outside faces. */
-    fun explored(json: String): List<PathCell> {
+    /**
+     * `pathfindExplored` / `pathfindFrontier` payload: an array of `{X,Y,Z}`
+     * (Go's Vector32), or `null` when empty. Works out each block's outside faces.
+     */
+    fun cells(json: String): List<PathCell> {
         val points = (JsonParser.parseString(json) as? JsonArray)?.mapNotNull { e ->
             val o = e as? JsonObject ?: return@mapNotNull null
             Triple(o.int("x") ?: return@mapNotNull null, o.int("y") ?: return@mapNotNull null, o.int("z") ?: return@mapNotNull null)

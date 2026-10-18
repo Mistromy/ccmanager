@@ -83,7 +83,7 @@ object ConfigScreen {
             .option(bool("Nametags", "Name above every turtle. The hover panel shows regardless", CcmConfig::showNametags))
             .option(bool("Chunk borders", "The 16³ chunk you're in, and the 3x3x3 around it", CcmConfig::showChunkBorders))
             .option(bool("Scan areas", "Cube over each turtle's last scan. /ccm clearscans removes them", CcmConfig::showScans))
-            .option(bool("Pathfinder search", "Blocks the last pathfind explored. /ccm clearpath removes them", CcmConfig::showPathfind))
+            .option(bool("Pathfinder search", "Last pathfind: explored blocks amber, frontier green. /ccm clearpath removes them", CcmConfig::showPathfind))
             .option(bool("Pathfinder search through walls", "", CcmConfig::pathfindThroughWalls))
             .option(bool("Turtles through walls", "Boxes and tracers on top of terrain", CcmConfig::turtlesThroughWalls))
             .option(bool("Nametags through walls", "The hover panel always is", CcmConfig::nametagsThroughWalls))

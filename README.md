@@ -14,7 +14,7 @@ In short: a programmable, remotely managed worker fleet to do basically anything
 - Machine Management
 
 # Curently: 
-as of: `14.10.2026`  
+as of: `18.10.2026`  
 The system has the following implemented in each module:
 ### Server (go)
 - websocket connectiosn for client and broker
@@ -22,6 +22,7 @@ The system has the following implemented in each module:
 - World Storage
 - Scan processing
 - turtle state management
+- pathfinding
 ### Turtles & Broker (lua)
 - Auto Update from server
 - Reboot / update on remote command
@@ -34,6 +35,7 @@ The system has the following implemented in each module:
 - nametags and info panels on hover
 - commands can be executed from the client
 - show scan visually on each scan
+- show explored nodes during pathfind
 
 # Why?
 If you've ever played Minecraft with technical mods, you understand this problem. Without thorough planning, previous knowledge, or lots of time spent, your base very quickly becomes an incomprehensible mess of wires, shafts, pipes and so much other things.
