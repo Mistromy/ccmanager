@@ -12,8 +12,8 @@ import (
 
 var (
 	paneStyle = func() lipgloss.Style {
-		b := lipgloss.RoundedBorder()
-		return lipgloss.NewStyle().BorderStyle(b)
+		//b := lipgloss.RoundedBorder()
+		return lipgloss.NewStyle()
 	}()
 )
 
