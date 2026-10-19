@@ -11,7 +11,7 @@ var mainDB *sql.DB
 
 var worldDB *sql.DB
 
-func init() {
+func Start() {
 	log.Info("Starting Databases...")
 	log.Info("Starting Main Database (1/2)")
 	err := startMainDB()

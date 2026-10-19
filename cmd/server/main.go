@@ -1,13 +1,12 @@
 package main
 
 import (
-	"time"
-
 	"charm.land/log/v2"
-	_ "github.com/mistromy/ccmanager/internal/db"
+	"github.com/mistromy/ccmanager/internal/db"
 	"github.com/mistromy/ccmanager/internal/server"
 	"github.com/mistromy/ccmanager/internal/tui"
 	"github.com/mistromy/ccmanager/internal/turtles"
+	"github.com/mistromy/ccmanager/internal/world"
 )
 
 const turtleDataPath string = "turtles.json"
@@ -22,7 +21,8 @@ func main() {
 	}
 
 	go func() {
-		time.Sleep(time.Second)
+		db.Start()
+		world.Load()
 		turtles.LoadData(turtleDataPath)
 
 		log.Info("Starting ComputerCraft Server.", "port", port)

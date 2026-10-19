@@ -22,7 +22,7 @@ type logWriter struct{ *tea.Program }
 
 func (l logWriter) Write(bytes []byte) (int, error) {
 	message := string(bytes)
-	strings.TrimRight(message, "\r\n")
+	message = strings.TrimRight(message, "\r\n")
 	l.Send(logMsg{message})
 	return len(bytes), nil
 }
@@ -52,7 +52,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case logMsg:
 		m.content = append(m.content, msg.string)
 		if m.ready {
-			//setContent
+			m.viewport.SetContent(strings.Join(m.content, "\n"))
+			m.viewport.GotoBottom()
 		}
 
 	case tea.WindowSizeMsg:
@@ -88,7 +89,7 @@ func Run() {
 	)
 	log.SetOutput(logWriter{p})
 	if _, err := p.Run(); err != nil {
-		log.SetOutput(os.Stderr)
-		log.Info("Closing Tui...")
 	}
+	log.SetOutput(os.Stderr)
+	log.Info("Closing Tui...")
 }

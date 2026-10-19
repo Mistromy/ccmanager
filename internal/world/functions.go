@@ -68,10 +68,10 @@ func init() {
 	generateMortonLUT()
 	worldPalette = append(worldPalette, "unknown")
 	worldPalette = append(worldPalette, "minecraft:air")
-	loadWorld()
+
 }
 
-func loadWorld() {
+func Load() {
 	log.Debug("Loading Palette")
 	var err error
 	worldPalette, err = db.LoadPalette()
