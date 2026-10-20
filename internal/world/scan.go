@@ -35,11 +35,11 @@ func Scan(msg ScanMsg) {
 	for _, b := range msg.Blocks {
 		coords, idMap := convert(b, msg.Pos, msg.Rot, paletteDict)
 		setBlock(idMap, coords)
-		log.Debug("processed scan", "coords", coords, "idMap", idMap)
+		//log.Debug("processed scan", "coords", coords, "idMap", idMap)
 	}
-	for i, block := range worldPalette {
-		log.Debug("added block:", "index", i, "block", block)
-	}
+	//for i, block := range worldPalette {
+	//	log.Debug("added block:", "index", i, "block", block)
+	//}
 
 	err := saveScan(msg)
 	if err != nil {
