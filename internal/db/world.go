@@ -60,10 +60,10 @@ func SavePalette(palette []string) error {
 
 func LoadAllChunks() (map[uint64][]byte, error) {
 	query, err := worldDB.Query(`SELECT key, data FROM chunks`)
-	defer query.Close()
 	if err != nil {
 		return nil, err
 	}
+	defer query.Close()
 	chunks := make(map[uint64][]byte)
 	for query.Next() {
 		var key uint64
