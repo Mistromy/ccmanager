@@ -10,7 +10,9 @@ import (
 
 	"charm.land/log/v2"
 	"github.com/gorilla/websocket"
+	"github.com/mistromy/ccmanager/internal/pathfinder"
 	"github.com/mistromy/ccmanager/internal/turtles"
+	"github.com/mistromy/ccmanager/internal/utils"
 	"github.com/mistromy/ccmanager/internal/world"
 )
 
@@ -110,4 +112,11 @@ func parseScan(b []byte) {
 	if err != nil {
 		return
 	}
+}
+
+func sendPathCommands(id uint16, traceback []*pathfinder.FrontierNode, explored []utils.Vector32, frontier []*pathfinder.FrontierNode) {
+	commands := pathfinder.TranslateTraceback(traceback)
+	sendPath(traceback)
+	sendPathfindData(explored, frontier)
+	turtleCommand(id, commands)
 }

@@ -99,6 +99,18 @@ func TranslateTraceback(traceback []*FrontierNode) []string {
 	return commandString
 }
 
+func NavigateTo(dest utils.Vector32, id uint16) (uint16, []*FrontierNode, []utils.Vector32, []*FrontierNode) {
+	tLocation := turtles.Get(id).Loc
+	tRotation := tLocation.Rot
+	tPosition := utils.Vector32{int32(tLocation.X), int32(tLocation.Y), int32(tLocation.Z)}
+	traceback, explored, frontier, err := Pathfind(tPosition, tRotation, dest)
+	if err != nil {
+		log.Error(err)
+		return 0, nil, nil, nil
+	}
+	return id, traceback, explored, frontier
+}
+
 func Pathfind(start utils.Vector32, rot turtles.Rot, end utils.Vector32) ([]*FrontierNode, []utils.Vector32, []*FrontierNode, error) {
 	{
 		block, err := world.GetBlockID(end)
