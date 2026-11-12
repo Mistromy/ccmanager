@@ -39,11 +39,7 @@ func turtleWs(w http.ResponseWriter, r *http.Request) {
 		if i < 0 {
 			i = len(msg)
 		}
-		if strings.Contains(string(msg), "fail") {
-			log.Error("received", "msg", string(msg))
-		}
-
-		if string(msg[:i]) != "heartbeat" && !strings.Contains(string(msg), "fail") {
+		if string(msg[:i]) != "heartbeat" && !strings.Contains(string(msg), "error") {
 			log.Debug("received", "msg", string(msg))
 		} // log received messages
 		//err = conn.WriteMessage(websocket.TextMessage, []byte("ok"))
@@ -62,6 +58,8 @@ func turtleWs(w http.ResponseWriter, r *http.Request) {
 			parseScan(msg[i+1:])
 		case "heartbeat":
 			writeStatus(msg[i+1:])
+		case "error":
+			log.Error("received", "msg", string(msg))
 		}
 		if err != nil {
 			return

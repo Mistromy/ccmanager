@@ -6,14 +6,6 @@ import (
 	"github.com/mistromy/ccmanager/internal/utils"
 )
 
-func start() {
-}
-
-func loop() {
-	for {
-	}
-}
-
 func goTo(dest utils.Vector32, id uint16) {
 	tLocation := turtles.Get(id).Loc
 	tRotation := tLocation.Rot

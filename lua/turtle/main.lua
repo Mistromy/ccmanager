@@ -204,19 +204,20 @@ while true do
 
         if moves[cmd] then
             -- a sequence of moves. a single "forward 3" is a sequence of one.
-            -- on failure: "<id> fail <index> <cmd> <completed> <reason>",
+            -- on failure: "error <id> <index> <cmd> <completed> <reason>",
             -- index is 1-based, completed is how many repeats of that command
             -- succeeded. the update with the full state always follows, so
             -- the server never has to work out the position itself.
+            -- scan and gps failures use the same shape with index 0.
             local seq, badIndex, badWord, why = parseSequence(words)
             if not seq then
-                modem.transmit(replyChannel, id, id .. " fail " .. badIndex
+                modem.transmit(replyChannel, id, "error " .. id .. " " .. badIndex
                     .. " " .. tostring(badWord) .. " 0 " .. why)
             else
                 for index, c in ipairs(seq) do
                     local done, reason = runMove(c.cmd, c.count)
                     if reason then
-                        modem.transmit(replyChannel, id, id .. " fail " .. index
+                        modem.transmit(replyChannel, id, "error " .. id .. " " .. index
                             .. " " .. c.cmd .. " " .. done .. " " .. reason)
                         break
                     end
@@ -234,7 +235,7 @@ while true do
                 x, y, z = nx, ny, nz
                 modem.transmit(replyChannel, id, "update " .. state())
             else
-                modem.transmit(replyChannel, id, id .. " gps 0 no fix")
+                modem.transmit(replyChannel, id, "error " .. id .. " 0 gps 0 no fix")
             end
         elseif cmd == "ping" then
             -- answered by pingLoop; ignored here so it is not "unknown"
@@ -260,7 +261,7 @@ while true do
             end
 
             if not raw then
-                modem.transmit(replyChannel, id, id .. " scan 0 " .. tostring(why))
+                modem.transmit(replyChannel, id, "error " .. id .. " 0 scan 0 " .. tostring(why))
             else
                 -- one pass: intern the name, append four numbers. the raw table
                 -- is never serialised, which is where the cost was.
